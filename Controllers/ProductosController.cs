@@ -25,7 +25,7 @@ namespace Gestion_de_Pedidos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = ex.Message });
+                return StatusCode(500, new { tipo = "Inesperado", mensaje = ex.Message });
             }
         }
 
@@ -39,30 +39,71 @@ namespace Gestion_de_Pedidos.Controllers
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("no encontrado"))
-                    return NotFound(new { mensaje = ex.Message });
-
-                return StatusCode(500, new { mensaje = ex.Message });
+                string tipo = ex.Message.Contains("no encontrado") ? "Negocio" : "Inesperado";
+                return StatusCode(tipo == "Negocio" ? 404 : 500, new { tipo, mensaje = ex.Message });
             }
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductoCreateDto dto)
         {
+            // Validación del DTO
+            if (!ModelState.IsValid)
+            {
+                var errores = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    tipo = "Validacion",
+                    mensaje = "Datos inválidos del modelo.",
+                    errores
+                });
+            }
+
             try
             {
                 var producto = await _service.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id = producto.Id }, producto);
+
+                // No incluir "Activo" si es true por defecto
+                var result = new
+                {
+                    producto.Id,
+                    producto.Nombre,
+                    producto.Precio,
+                    producto.Activo
+                };
+
+                return CreatedAtAction(nameof(GetById), new { id = producto.Id }, result);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { mensaje = ex.Message });
+                // Diferenciar tipo de error
+                string tipo = ex.Message.Contains("Ya existe") || ex.Message.Contains("No se puede") ? "Negocio/SQL" : "Inesperado";
+                return BadRequest(new { tipo, mensaje = ex.Message });
             }
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductoUpdateDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                var errores = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    tipo = "Validacion",
+                    mensaje = "Datos inválidos del modelo.",
+                    errores
+                });
+            }
+
             try
             {
                 var result = await _service.UpdateAsync(id, dto);
@@ -70,10 +111,10 @@ namespace Gestion_de_Pedidos.Controllers
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("no encontrado"))
-                    return NotFound(new { mensaje = ex.Message });
-
-                return BadRequest(new { mensaje = ex.Message });
+                string tipo = ex.Message.Contains("no encontrado") ? "Negocio" : "Negocio/SQL";
+                return tipo == "Negocio"
+                    ? NotFound(new { tipo, mensaje = ex.Message })
+                    : BadRequest(new { tipo, mensaje = ex.Message });
             }
         }
 
@@ -87,10 +128,10 @@ namespace Gestion_de_Pedidos.Controllers
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("no encontrado"))
-                    return NotFound(new { mensaje = ex.Message });
-
-                return BadRequest(new { mensaje = ex.Message });
+                string tipo = ex.Message.Contains("no encontrado") ? "Negocio" : "Negocio/SQL";
+                return tipo == "Negocio"
+                    ? NotFound(new { tipo, mensaje = ex.Message })
+                    : BadRequest(new { tipo, mensaje = ex.Message });
             }
         }
     }

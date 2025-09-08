@@ -37,7 +37,7 @@ namespace Gestion_de_Pedidos.Service
 
                 return producto;
             }
-            catch (Exception ex) when (!(ex is SqlException))
+            catch (Exception)
             {
                 throw new Exception($"Error inesperado al buscar producto con ID {id}.");
             }
@@ -45,7 +45,7 @@ namespace Gestion_de_Pedidos.Service
 
         public async Task<Producto> CreateAsync(ProductoCreateDto dto)
         {
-            // Verificación previa de existencia por nombre
+            // Verificación de duplicado
             if (await _context.Productos.AnyAsync(p => p.Nombre == dto.Nombre))
                 throw new Exception("Ya existe un producto con ese nombre.");
 
@@ -55,7 +55,6 @@ namespace Gestion_de_Pedidos.Service
                 {
                     Nombre = dto.Nombre,
                     Precio = dto.Precio,
-                    Activo = dto.Activo
                 };
 
                 _context.Productos.Add(producto);
@@ -64,18 +63,19 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
             {
+                // Capturamos los errores específicos de SQL Server
                 string mensaje = sqlEx.Number switch
                 {
-                    2627 => "Ya existe un producto con el mismo ID.",
-                    2601 => "Ya existe un producto con el mismo nombre.",
-                    547 => "No se puede crear producto debido a registros relacionados.",
-                    _ => "Error de base de datos."
+                    2627 => "Violación de clave primaria: ya existe un producto con ese ID.",
+                    2601 => "Violación de índice único: ya existe un producto con ese nombre.",
+                    547 => "Restricción de integridad: no se puede crear producto debido a registros relacionados.",
+                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
                 };
                 throw new Exception(mensaje);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw new Exception("Error inesperado al crear el producto.");
+                throw new Exception($"Error inesperado al crear el producto: {ex.Message}");
             }
         }
 
@@ -85,7 +85,6 @@ namespace Gestion_de_Pedidos.Service
             if (producto == null)
                 throw new Exception($"Producto con ID {id} no encontrado.");
 
-            // Verificación previa de nombre único
             if (await _context.Productos.AnyAsync(p => p.Nombre == dto.Nombre && p.Id != id))
                 throw new Exception("Ya existe otro producto con ese nombre.");
 
@@ -103,16 +102,16 @@ namespace Gestion_de_Pedidos.Service
             {
                 string mensaje = sqlEx.Number switch
                 {
-                    2627 => "Ya existe un producto con el mismo ID.",
-                    2601 => "Ya existe otro producto con el mismo nombre.",
-                    547 => "No se puede actualizar producto debido a registros relacionados.",
-                    _ => "Error de base de datos."
+                    2627 => "Violación de clave primaria: ya existe un producto con ese ID.",
+                    2601 => "Violación de índice único: ya existe otro producto con ese nombre.",
+                    547 => "Restricción de integridad: no se puede actualizar producto debido a registros relacionados.",
+                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
                 };
                 throw new Exception(mensaje);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw new Exception("Error inesperado al actualizar el producto.");
+                throw new Exception($"Error inesperado al actualizar el producto: {ex.Message}");
             }
         }
 
@@ -132,14 +131,14 @@ namespace Gestion_de_Pedidos.Service
             {
                 string mensaje = sqlEx.Number switch
                 {
-                    547 => "No se puede eliminar producto porque tiene registros relacionados.",
-                    _ => "Error de base de datos al eliminar el producto."
+                    547 => "Restricción de integridad: no se puede eliminar producto porque tiene registros relacionados.",
+                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
                 };
                 throw new Exception(mensaje);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw new Exception("Error inesperado al eliminar el producto.");
+                throw new Exception($"Error inesperado al eliminar el producto: {ex.Message}");
             }
         }
     }
