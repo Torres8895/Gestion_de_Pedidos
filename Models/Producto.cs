@@ -8,14 +8,15 @@ namespace Gestion_de_Pedidos.Models
         [Key]
         public int Id { get; set; }
 
-        [Required]
-        [MaxLength(100)]
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [MaxLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
         public string Nombre { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "El precio es obligatorio.")]
         [Column(TypeName = "decimal(10,2)")]
+        [Range(0.01, 9999999999.99, ErrorMessage = "El precio debe ser mayor a 0.")]
         public decimal Precio { get; set; }
 
-        public bool? Activo { get; set; }
+        public bool Activo { get; set; } = true;
     }
 }

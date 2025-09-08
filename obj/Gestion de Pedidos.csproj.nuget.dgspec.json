@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Tp7Edi-Teleinformatica\\Gestion de Pedidos\\Gestion de Pedidos.csproj": {}
+    "C:\\Users\\TesysNet\\Documents\\backend-tp7\\Gestion_de_Pedidos\\Gestion de Pedidos.csproj": {}
   },
   "projects": {
-    "E:\\Tp7Edi-Teleinformatica\\Gestion de Pedidos\\Gestion de Pedidos.csproj": {
+    "C:\\Users\\TesysNet\\Documents\\backend-tp7\\Gestion_de_Pedidos\\Gestion de Pedidos.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Tp7Edi-Teleinformatica\\Gestion de Pedidos\\Gestion de Pedidos.csproj",
+        "projectUniqueName": "C:\\Users\\TesysNet\\Documents\\backend-tp7\\Gestion_de_Pedidos\\Gestion de Pedidos.csproj",
         "projectName": "Gestion de Pedidos",
-        "projectPath": "E:\\Tp7Edi-Teleinformatica\\Gestion de Pedidos\\Gestion de Pedidos.csproj",
-        "packagesPath": "C:\\Users\\F.Torres\\.nuget\\packages\\",
-        "outputPath": "E:\\Tp7Edi-Teleinformatica\\Gestion de Pedidos\\obj\\",
+        "projectPath": "C:\\Users\\TesysNet\\Documents\\backend-tp7\\Gestion_de_Pedidos\\Gestion de Pedidos.csproj",
+        "packagesPath": "C:\\Users\\TesysNet\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\TesysNet\\Documents\\backend-tp7\\Gestion_de_Pedidos\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\F.Torres\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\TesysNet\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -26,7 +26,6 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -51,6 +50,14 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.Data.SqlClient": {
+              "target": "Package",
+              "version": "[6.1.1, )"
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.8, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
@@ -67,6 +74,24 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.17, 8.0.17]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.win-x64",
+              "version": "[8.0.17, 8.0.17]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.17, 8.0.17]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.17, 8.0.17]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -75,7 +100,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
