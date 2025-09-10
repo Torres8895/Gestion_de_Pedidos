@@ -14,7 +14,7 @@ namespace Gestion_de_Pedidos.Models
 
         [Required(ErrorMessage = "El precio es obligatorio.")]
         [Column(TypeName = "decimal(10,2)")]
-        [Range(0.01, 9999999999.99, ErrorMessage = "El precio debe ser mayor a 0.")]
+        [Range(0.01, 99999999.99, ErrorMessage = "El precio esta fuera de rango.")]
         public decimal Precio { get; set; }
 
         public bool Activo { get; set; } = true;

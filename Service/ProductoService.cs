@@ -1,5 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Gestion_de_Pedidos.Models;
 using static Gestion_de_Pedidos.Dto.ProductoDto;
 using Gestion_de_Pedidos.DataBase;
@@ -15,131 +14,110 @@ namespace Gestion_de_Pedidos.Service
             _context = context;
         }
 
-        public async Task<IEnumerable<Producto>> GetAllAsync()
+        // Obtener todos los productos activos
+        public async Task<IEnumerable<ProductoReadDto>> GetAllAsync()
         {
-            try
-            {
-                return await _context.Productos.ToListAsync();
-            }
-            catch (Exception)
-            {
-                throw new Exception("Error inesperado al obtener todos los productos.");
-            }
-        }
-
-        public async Task<Producto> GetByIdAsync(int id)
-        {
-            try
-            {
-                var producto = await _context.Productos.FindAsync(id);
-                if (producto == null)
-                    throw new Exception($"Producto con ID {id} no encontrado.");
-
-                return producto;
-            }
-            catch (Exception)
-            {
-                throw new Exception($"Error inesperado al buscar producto con ID {id}.");
-            }
-        }
-
-        public async Task<Producto> CreateAsync(ProductoCreateDto dto)
-        {
-            // Verificación de duplicado
-            if (await _context.Productos.AnyAsync(p => p.Nombre == dto.Nombre))
-                throw new Exception("Ya existe un producto con ese nombre.");
-
-            try
-            {
-                var producto = new Producto
+            return await _context.Productos
+                .Where(p => p.Activo) 
+                .Select(p => new ProductoReadDto
                 {
-                    Nombre = dto.Nombre,
-                    Precio = dto.Precio,
-                };
-
-                _context.Productos.Add(producto);
-                await _context.SaveChangesAsync();
-                return producto;
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
-            {
-                // Capturamos los errores específicos de SQL Server
-                string mensaje = sqlEx.Number switch
-                {
-                    2627 => "Violación de clave primaria: ya existe un producto con ese ID.",
-                    2601 => "Violación de índice único: ya existe un producto con ese nombre.",
-                    547 => "Restricción de integridad: no se puede crear producto debido a registros relacionados.",
-                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
-                };
-                throw new Exception(mensaje);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error inesperado al crear el producto: {ex.Message}");
-            }
+                    Id = p.Id,
+                    Nombre = p.Nombre.ToUpper(),
+                    Precio = p.Precio
+                })
+                .ToListAsync();
         }
 
-        public async Task<bool> UpdateAsync(int id, ProductoUpdateDto dto)
+        // Obtener producto activo por ID
+        public async Task<ProductoReadDto?> GetByIdAsync(int id)
         {
-            var producto = await _context.Productos.FindAsync(id);
+            return await _context.Productos
+                .Where(p => p.Id == id && p.Activo)
+                .Select(p => new ProductoReadDto
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre.ToUpper(),
+                    Precio = p.Precio
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<ProductoReadDto> CreateAsync(ProductoCreateDto dto)
+        {
+            var producto = new Producto
+            {
+                Nombre = dto.Nombre.ToUpper(),
+                Precio = dto.Precio,
+                Activo = true
+            };
+
+            _context.Productos.Add(producto);
+            await _context.SaveChangesAsync();
+
+            // Devolver DTO de lectura usando LINQ
+            return await _context.Productos
+                .Where(p => p.Id == producto.Id)
+                .Select(p => new ProductoReadDto
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre.ToUpper(),
+                    Precio = p.Precio
+                })
+                .FirstOrDefaultAsync()!;
+        }
+
+
+        public async Task<ProductoReadDto?> UpdateAsync(int id, ProductoUpdateDto dto)
+        {
+            var producto = await _context.Productos
+                .Where(p => p.Id == id && p.Activo)
+                .FirstOrDefaultAsync();
+
             if (producto == null)
-                throw new Exception($"Producto con ID {id} no encontrado.");
+                return null;
 
-            if (await _context.Productos.AnyAsync(p => p.Nombre == dto.Nombre && p.Id != id))
-                throw new Exception("Ya existe otro producto con ese nombre.");
+            producto.Nombre = dto.Nombre.ToUpper();
+            producto.Precio = dto.Precio;
 
-            try
-            {
-                producto.Nombre = dto.Nombre;
-                producto.Precio = dto.Precio;
-                producto.Activo = dto.Activo;
+            _context.Productos.Update(producto);
+            await _context.SaveChangesAsync();
 
-                _context.Productos.Update(producto);
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
-            {
-                string mensaje = sqlEx.Number switch
+            // Proyección a DTO usando LINQ
+            return await _context.Productos
+                .Where(p => p.Id == producto.Id)
+                .Select(p => new ProductoReadDto
                 {
-                    2627 => "Violación de clave primaria: ya existe un producto con ese ID.",
-                    2601 => "Violación de índice único: ya existe otro producto con ese nombre.",
-                    547 => "Restricción de integridad: no se puede actualizar producto debido a registros relacionados.",
-                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
-                };
-                throw new Exception(mensaje);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error inesperado al actualizar el producto: {ex.Message}");
-            }
+                    Id = p.Id,
+                    Nombre = p.Nombre.ToUpper(),
+                    Precio = p.Precio
+                })
+                .FirstOrDefaultAsync();
         }
 
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var producto = await _context.Productos.FindAsync(id);
-            if (producto == null)
-                throw new Exception($"Producto con ID {id} no encontrado.");
 
-            try
-            {
-                _context.Productos.Remove(producto);
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
-            {
-                string mensaje = sqlEx.Number switch
+        public async Task<ProductoReadDto?> DeleteAsync(int id)
+        {
+            var producto = await _context.Productos
+                .Where(p => p.Id == id && p.Activo)
+                .FirstOrDefaultAsync();
+
+            if (producto == null)
+                return null;
+
+            producto.Activo = false;
+            _context.Productos.Update(producto);
+            await _context.SaveChangesAsync();
+
+            // Proyección final a DTO
+            return await _context.Productos
+                .Where(p => p.Id == producto.Id)
+                .Select(p => new ProductoReadDto
                 {
-                    547 => "Restricción de integridad: no se puede eliminar producto porque tiene registros relacionados.",
-                    _ => $"Error de base de datos SQL ({sqlEx.Number}): {sqlEx.Message}"
-                };
-                throw new Exception(mensaje);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error inesperado al eliminar el producto: {ex.Message}");
-            }
+                    Id = p.Id,
+                    Nombre = p.Nombre.ToUpper(),
+                    Precio = p.Precio
+                })
+                .FirstOrDefaultAsync();
         }
     }
 }
