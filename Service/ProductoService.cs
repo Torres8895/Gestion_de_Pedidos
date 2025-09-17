@@ -42,8 +42,17 @@ namespace Gestion_de_Pedidos.Service
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<ProductoReadDto> CreateAsync(ProductoCreateDto dto)
+        public async Task<ProductoReadDto?> CreateAsync(ProductoCreateDto dto)
         {
+            // Validación de unicidad (ignora mayúsculas/minúsculas)
+            bool existe = await _context.Productos
+                .AnyAsync(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper() && p.Activo);
+
+            if (existe)
+            {
+                throw new InvalidOperationException("Ya existe un producto con ese nombre.");
+            }
+
             var producto = new Producto
             {
                 Nombre = dto.Nombre.ToUpper(),
@@ -54,16 +63,12 @@ namespace Gestion_de_Pedidos.Service
             _context.Productos.Add(producto);
             await _context.SaveChangesAsync();
 
-            // Devolver DTO de lectura usando LINQ
-            return await _context.Productos
-                .Where(p => p.Id == producto.Id)
-                .Select(p => new ProductoReadDto
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre.ToUpper(),
-                    Precio = p.Precio
-                })
-                .FirstOrDefaultAsync()!;
+            return new ProductoReadDto
+            {
+                Id = producto.Id,
+                Nombre = producto.Nombre,
+                Precio = producto.Precio
+            };
         }
 
 
@@ -76,22 +81,27 @@ namespace Gestion_de_Pedidos.Service
             if (producto == null)
                 return null;
 
+            // Validación de unicidad, ignorando el registro actual
+            bool existe = await _context.Productos
+                .AnyAsync(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper() && p.Id != id && p.Activo);
+
+            if (existe)
+            {
+                throw new InvalidOperationException("Ya existe un producto con ese nombre.");
+            }
+
             producto.Nombre = dto.Nombre.ToUpper();
             producto.Precio = dto.Precio;
 
             _context.Productos.Update(producto);
             await _context.SaveChangesAsync();
 
-            // Proyección a DTO usando LINQ
-            return await _context.Productos
-                .Where(p => p.Id == producto.Id)
-                .Select(p => new ProductoReadDto
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre.ToUpper(),
-                    Precio = p.Precio
-                })
-                .FirstOrDefaultAsync();
+            return new ProductoReadDto
+            {
+                Id = producto.Id,
+                Nombre = producto.Nombre,
+                Precio = producto.Precio
+            };
         }
 
 

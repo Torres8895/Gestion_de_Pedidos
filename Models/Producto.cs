@@ -1,8 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Gestion_de_Pedidos.Models
 {
+    [Index(nameof(Nombre), IsUnique = true)]
     public class Producto
     {
         [Key]

@@ -43,8 +43,15 @@ namespace Gestion_de_Pedidos.Controllers
                 return BadRequest(new { errores });
             }
 
-            var producto = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = producto.Id }, producto);
+            try
+            {
+                var producto = await _service.CreateAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = producto.Id }, producto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
@@ -60,9 +67,16 @@ namespace Gestion_de_Pedidos.Controllers
                 return BadRequest(new { errores });
             }
 
-            var producto = await _service.UpdateAsync(id, dto);
-            if (producto == null) return NotFound();
-            return Ok(producto);
+            try
+            {
+                var producto = await _service.UpdateAsync(id, dto);
+                if (producto == null) return NotFound();
+                return Ok(producto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]

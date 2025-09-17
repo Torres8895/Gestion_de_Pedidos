@@ -1,34 +1,49 @@
-using Gestion_de_Pedidos.DataBase;
+锘縰sing Gestion_de_Pedidos.DataBase;
 using Gestion_de_Pedidos.Service;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuraci髇 de la conexi髇 a SQL Server
+// 馃搶 Configuraci贸n de la conexi贸n a SQL Server Express
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Inyecci髇 del servicio
+// Inyecci贸n de dependencias
 builder.Services.AddScoped<ProductoService>();
 
-// Add services to the container.
+// Controladores
 builder.Services.AddControllers();
 
-// Swagger/OpenAPI
+// Swagger (documentaci贸n de API)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// 馃搶 Configuraci贸n de CORS para permitir cualquier frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()   // Permite cualquier origen
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
-// Configuraci髇 del pipeline HTTP
+// Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// 馃搶 Activar CORS antes de la autorizaci贸n
+app.UseCors("AllowAll");
+
 app.UseHttpsRedirection();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
