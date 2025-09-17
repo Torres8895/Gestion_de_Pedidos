@@ -1,6 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
+
 namespace Gestion_de_Pedidos.Models
 {
+    [Index(nameof(Email), IsUnique = true)]
     public class Cliente
     {
         [Key]

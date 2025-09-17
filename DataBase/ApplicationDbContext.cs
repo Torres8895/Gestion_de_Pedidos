@@ -10,5 +10,6 @@ namespace Gestion_de_Pedidos.DataBase
         {
         }
         public DbSet<Producto> Productos { get; set; }
+        public DbSet<Cliente> Clientes { get; set; }
     }
 }
