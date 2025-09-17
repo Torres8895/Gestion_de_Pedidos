@@ -1,9 +1,9 @@
-#Configuración de Visual Studio,
+# Configuración de Visual Studio
 .vs/
 *.user
 *.suo
 
-#Compilación,
+# Compilación
 bin/
 obj/
 out/
@@ -11,31 +11,31 @@ out/
 [Ll]og/
 [Tt]estResults/
 
-#Archivos de cache y temporales,
+# Archivos de cache y temporales
 *.cache
 *.tmp
 *.swp
 
-#Archivos de publicación local,
+# Archivos de publicación local
 publish/
 app.publish/
 
-#Archivos de usuario de VS Code,
+# Archivos de usuario de VS Code
 .vscode/
 
-#Paquetes NuGet,
+# Paquetes NuGet
 *.nupkg
 *.snupkg
 packages/
 
-#Archivos de depuración,
+# Archivos de depuración
 *.pdb
 *.mdb
 
-#Archivos generados,
+# Archivos generados
 artifacts/
 project.lock.json
 project.fragment.lock.json
 
-#Logs,
+# Logs
 *.log
