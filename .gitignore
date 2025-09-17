@@ -10,6 +10,7 @@ out/
 [Bb]uild/
 [Ll]og/
 [Tt]estResults/
+Migrations/
 
 # Archivos de cache y temporales
 *.cache
@@ -19,6 +20,7 @@ out/
 # Archivos de publicación local
 publish/
 app.publish/
+appsettings.json
 
 # Archivos de usuario de VS Code
 .vscode/

@@ -62,7 +62,6 @@ E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Microsoft.VisualSt
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Microsoft.VisualStudio.Web.CodeGeneration.Templating.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Microsoft.VisualStudio.Web.CodeGeneration.Utils.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Microsoft.VisualStudio.Web.CodeGenerators.Mvc.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Microsoft.Win32.SystemEvents.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Mono.TextTemplating.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\Newtonsoft.Json.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\NuGet.Common.dll
@@ -86,7 +85,6 @@ E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Composition
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Composition.TypedParts.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Configuration.ConfigurationManager.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Diagnostics.DiagnosticSource.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Drawing.Common.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Formats.Asn1.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.IO.Pipelines.dll
@@ -94,10 +92,8 @@ E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Memory.Data
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Reflection.MetadataLoadContext.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Runtime.Caching.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Security.Cryptography.ProtectedData.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Security.Permissions.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Text.Encodings.Web.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Text.Json.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\System.Windows.Extensions.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\af\Humanizer.resources.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\ar\Humanizer.resources.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\az\Humanizer.resources.dll
@@ -256,12 +252,8 @@ E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win-arm\n
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win-arm64\native\Microsoft.Data.SqlClient.SNI.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win-x64\native\Microsoft.Data.SqlClient.SNI.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win-x86\native\Microsoft.Data.SqlClient.SNI.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win\lib\net7.0\Microsoft.Win32.SystemEvents.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win\lib\net7.0\System.Drawing.Common.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Runtime.Caching.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win\lib\net7.0\System.Security.Cryptography.ProtectedData.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
-E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\bin\Debug\net8.0\runtimes\win\lib\net7.0\System.Windows.Extensions.dll
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\Gestion de Pedidos.csproj.AssemblyReference.cache
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\rpswa.dswa.cache.json
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\Gestion de Pedidos.GeneratedMSBuildEditorConfig.editorconfig
@@ -285,3 +277,4 @@ E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\refint\Gestion de 
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\Gestion de Pedidos.pdb
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\Gestion de Pedidos.genruntimeconfig.cache
 E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\ref\Gestion de Pedidos.dll
+E:\Tp7Edi-Teleinformatica\Gestion de Pedidos\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

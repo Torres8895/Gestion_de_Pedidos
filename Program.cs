@@ -14,9 +14,17 @@ builder.Services.AddScoped<ProductoService>();
 // Controladores
 builder.Services.AddControllers();
 
-// Swagger (documentación de API)
+// Swagger (documentación de API) - CON VERSIÓN
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Gestión de Pedidos API",
+        Version = "v1",
+        Description = "API para gestión de pedidos y productos"
+    });
+});
 
 // 📌 Configuración de CORS para permitir cualquier frontend
 builder.Services.AddCors(options =>
@@ -35,7 +43,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Gestión de Pedidos API V1");
+        c.RoutePrefix = string.Empty; // Hace que Swagger sea la página de inicio
+    });
 }
 
 // 📌 Activar CORS antes de la autorización
