@@ -76,7 +76,7 @@ namespace Gestion_de_Pedidos.Service
             {
                 Nombre = clienteDto.Nombre,
                 Email = clienteDto.Email,
-                Activo = clienteDto.Activo ?? true
+                Activo = true
             };
 
             _context.Clientes.Add(cliente);
@@ -90,17 +90,16 @@ namespace Gestion_de_Pedidos.Service
         }
 
         // Actualizar cliente
-        public async Task<ClienteReadDto?> UpdateAsync(int id, ClienteUpdateDto clienteDto)
+        public async Task<ClienteReadDto?> UpdateAsync(string email, ClienteUpdateDto clienteDto)
         {
             var cliente = await _context.Clientes
-                .FirstOrDefaultAsync(c => c.Id == id && c.Activo == true);
+                .FirstOrDefaultAsync(c => c.Email.ToLower() == email.ToLower() && c.Activo == true);
 
             if (cliente == null)
                 return null;
 
             cliente.Nombre = clienteDto.Nombre;
             cliente.Email = clienteDto.Email;
-            cliente.Activo = clienteDto.Activo;
 
             try
             {
@@ -122,21 +121,6 @@ namespace Gestion_de_Pedidos.Service
                 Nombre = cliente.Nombre,
                 Email = cliente.Email
             };
-        }
-
-        // Eliminar cliente (soft delete)
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var cliente = await _context.Clientes
-                .FirstOrDefaultAsync(c => c.Id == id && c.Activo == true);
-
-            if (cliente == null)
-                return false;
-
-            cliente.Activo = false;
-            await _context.SaveChangesAsync();
-
-            return true;
         }
 
         // Eliminar cliente por email (soft delete)

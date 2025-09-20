@@ -23,27 +23,34 @@ namespace Gestion_de_Pedidos.Controllers
             return Ok(clientes);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        // Buscar clientes por nombre
+        [HttpGet("search/{nombre}")]
+        public async Task<IActionResult> SearchByName(string nombre)
         {
-            var cliente = await _service.GetByIdAsync(id);
-            if (cliente == null) return NotFound();
-            return Ok(cliente);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(nombre))
+                    return BadRequest(new { error = "El nombre es requerido." });
+
+                var clientes = await _service.SearchByNameAsync(nombre);
+                return Ok(clientes);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor." });
+            }
         }
 
-
-
-        // OPCIÓN 2: Usar el email como identificador alternativo
+        //buscar cliente por email
         [HttpGet("by-email/{email}")]
         public async Task<IActionResult> GetByEmail(string email)
         {
             var cliente = await _service.GetByEmailAsync(email);
-            if (cliente == null) return NotFound();
+            if (cliente == null) return NotFound(new { error = "Cliente no encontrado." });
             return Ok(cliente);
         }
 
-        // OPCIÓN 2b: Create que usa email para el location
-        /*
+        // alta de cliente
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ClienteCreateDto dto)
         {
@@ -66,10 +73,10 @@ namespace Gestion_de_Pedidos.Controllers
                 return BadRequest(new { error = ex.Message });
             }
         }
-        */
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] ClienteUpdateDto dto)
+        // actualizar cliente por email
+        [HttpPut("by-email/{email}")]
+        public async Task<IActionResult> Update(string email, [FromBody] ClienteUpdateDto dto)
         {
             if (!ModelState.IsValid)
             {
@@ -82,7 +89,7 @@ namespace Gestion_de_Pedidos.Controllers
 
             try
             {
-                var updatedCliente = await _service.UpdateAsync(id, dto);
+                var updatedCliente = await _service.UpdateAsync(email, dto);
                 if (updatedCliente == null) return NotFound();
                 return Ok(updatedCliente);
             }
@@ -92,23 +99,7 @@ namespace Gestion_de_Pedidos.Controllers
             }
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            try
-            {
-                var deleted = await _service.DeleteAsync(id);
-                if (!deleted)
-                    return NotFound(new { error = "Cliente no encontrado." });
-                return NoContent();
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, new { error = "Error interno del servidor." });
-            }
-        }
-
-        // DELETE por email (alternativa usando identificador único)
+        // eliminar cliente por email (soft delete)
         [HttpDelete("by-email/{email}")]
         public async Task<IActionResult> DeleteByEmail(string email)
         {
@@ -128,40 +119,5 @@ namespace Gestion_de_Pedidos.Controllers
             }
         }
 
-        // Buscar clientes por nombre
-        [HttpGet("search/{nombre}")]
-        public async Task<IActionResult> SearchByName(string nombre)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(nombre))
-                    return BadRequest(new { error = "El nombre es requerido." });
-
-                var clientes = await _service.SearchByNameAsync(nombre);
-                return Ok(clientes);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, new { error = "Error interno del servidor." });
-            }
-        }
-
-        // Verificar si existe cliente por email
-        [HttpHead("by-email/{email}")]
-        public async Task<IActionResult> ExistsByEmail(string email)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(email))
-                    return BadRequest();
-
-                var exists = await _service.ExistsByEmailAsync(email);
-                return exists ? Ok() : NotFound();
-            }
-            catch (Exception)
-            {
-                return StatusCode(500);
-            }
-        }
     }
 }

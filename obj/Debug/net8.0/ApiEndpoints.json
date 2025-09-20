@@ -11,52 +11,15 @@
   },
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "GetById",
-    "RelativePath": "api/Clientes/{id}",
-    "HttpMethod": "GET",
+    "Method": "Create",
+    "RelativePath": "api/Clientes",
+    "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [
-      {
-        "Name": "id",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "Update",
-    "RelativePath": "api/Clientes/{id}",
-    "HttpMethod": "PUT",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "id",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
       {
         "Name": "dto",
-        "Type": "Gestion_de_Pedidos.Dto.ClienteDto\u002BClienteUpdateDto",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "Delete",
-    "RelativePath": "api/Clientes/{id}",
-    "HttpMethod": "DELETE",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "id",
-        "Type": "System.Int32",
+        "Type": "Gestion_de_Pedidos.Dto.ClienteDto\u002BClienteCreateDto",
         "IsRequired": true
       }
     ],
@@ -80,9 +43,9 @@
   },
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "DeleteByEmail",
+    "Method": "Update",
     "RelativePath": "api/Clientes/by-email/{email}",
-    "HttpMethod": "DELETE",
+    "HttpMethod": "PUT",
     "IsController": true,
     "Order": 0,
     "Parameters": [
@@ -90,15 +53,20 @@
         "Name": "email",
         "Type": "System.String",
         "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "Gestion_de_Pedidos.Dto.ClienteDto\u002BClienteUpdateDto",
+        "IsRequired": true
       }
     ],
     "ReturnTypes": []
   },
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "ExistsByEmail",
+    "Method": "DeleteByEmail",
     "RelativePath": "api/Clientes/by-email/{email}",
-    "HttpMethod": "HEAD",
+    "HttpMethod": "DELETE",
     "IsController": true,
     "Order": 0,
     "Parameters": [

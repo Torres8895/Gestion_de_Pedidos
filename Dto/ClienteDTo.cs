@@ -21,7 +21,6 @@ namespace Gestion_de_Pedidos.Dto
             [EmailAddress(ErrorMessage = "El formato del email no es válido.")]
             public string Email { get; set; }
 
-            public bool? Activo { get; set; } = true;
         }
 
         public class ClienteUpdateDto
@@ -34,8 +33,6 @@ namespace Gestion_de_Pedidos.Dto
             [StringLength(50, ErrorMessage = "El email no puede superar los 50 caracteres.")]
             [EmailAddress(ErrorMessage = "El formato del email no es válido.")]
             public string Email { get; set; }
-
-            public bool? Activo { get; set; }
         }
     }
 }

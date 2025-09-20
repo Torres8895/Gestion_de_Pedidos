@@ -10,6 +10,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Inyección de dependencias
 builder.Services.AddScoped<ProductoService>();
+builder.Services.AddScoped<ClientesService>();
 
 // Controladores
 builder.Services.AddControllers();
@@ -46,7 +47,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Gestión de Pedidos API V1");
-        c.RoutePrefix = string.Empty; // Hace que Swagger sea la página de inicio
+        //c.RoutePrefix = string.Empty; // Hace que Swagger sea la página de inicio
     });
 }
 
