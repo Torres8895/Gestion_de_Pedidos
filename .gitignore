@@ -18,9 +18,9 @@ Migrations/
 *.swp
 
 # Archivos de publicación local
-publish/
-app.publish/
-appsettings.json
+#publish/
+#app.publish/
+#appsettings.json
 
 # Archivos de usuario de VS Code
 .vscode/
@@ -41,6 +41,3 @@ project.fragment.lock.json
 
 # Logs
 *.log
-/obj/Debug/net8.0/apphost.exe
-/obj/Debug/net8.0/rjsmcshtml.dswa.cache.json
-/obj/Debug/net8.0/rjsmrazor.dswa.cache.json
