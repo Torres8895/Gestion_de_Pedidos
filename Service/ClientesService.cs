@@ -28,7 +28,7 @@ namespace Gestion_de_Pedidos.Service
                 .ToListAsync();
         }
 
-        // Obtener cliente por ID
+        /* Obtener cliente por ID
         public async Task<ClienteReadDto?> GetByIdAsync(int id)
         {
             var cliente = await _context.Clientes
@@ -43,7 +43,7 @@ namespace Gestion_de_Pedidos.Service
                 Nombre = cliente.Nombre,
                 Email = cliente.Email
             };
-        }
+        }*/
 
         // Obtener cliente por email (para usar como identificador alternativo)
         public async Task<ClienteReadDto?> GetByEmailAsync(string email)
