@@ -16,7 +16,7 @@ namespace Gestion_de_Pedidos.Controllers
             _service = service;
         }
 
-        [HttpGet]
+        [HttpGet("search")]
         public async Task<IActionResult> GetAll()
         {
             var clientes = await _service.GetAllAsync();
@@ -24,7 +24,7 @@ namespace Gestion_de_Pedidos.Controllers
         }
 
         // Buscar clientes por nombre
-        [HttpGet("search/{nombre}")]
+        [HttpGet("search-name/{nombre}")]
         public async Task<IActionResult> SearchByName(string nombre)
         {
             try
@@ -42,7 +42,7 @@ namespace Gestion_de_Pedidos.Controllers
         }
 
         //buscar cliente por email
-        [HttpGet("by-email/{email}")]
+        [HttpGet("search-email/{email}")]
         public async Task<IActionResult> GetByEmail(string email)
         {
             var cliente = await _service.GetByEmailAsync(email);
@@ -51,7 +51,7 @@ namespace Gestion_de_Pedidos.Controllers
         }
 
         // alta de cliente
-        [HttpPost]
+        [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] ClienteCreateDto dto)
         {
             if (!ModelState.IsValid)
@@ -75,7 +75,7 @@ namespace Gestion_de_Pedidos.Controllers
         }
 
         // actualizar cliente por email
-        [HttpPut("by-email/{email}")]
+        [HttpPut("update-by-email/{email}")]
         public async Task<IActionResult> Update(string email, [FromBody] ClienteUpdateDto dto)
         {
             if (!ModelState.IsValid)
@@ -100,7 +100,7 @@ namespace Gestion_de_Pedidos.Controllers
         }
 
         // eliminar cliente por email (soft delete)
-        [HttpDelete("by-email/{email}")]
+        [HttpDelete("delete-by-email/{email}")]
         public async Task<IActionResult> DeleteByEmail(string email)
         {
             try

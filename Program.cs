@@ -11,6 +11,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Inyección de dependencias
 builder.Services.AddScoped<ProductoService>();
 builder.Services.AddScoped<ClientesService>();
+builder.Services.AddScoped<PedidosService>();
 
 // Controladores
 builder.Services.AddControllers();
@@ -41,7 +42,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Pipeline HTTP
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>

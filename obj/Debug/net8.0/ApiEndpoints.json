@@ -1,18 +1,8 @@
 [
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "GetAll",
-    "RelativePath": "api/Clientes",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
     "Method": "Create",
-    "RelativePath": "api/Clientes",
+    "RelativePath": "api/Clientes/create",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
@@ -27,8 +17,34 @@
   },
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
+    "Method": "DeleteByEmail",
+    "RelativePath": "api/Clientes/delete-by-email/{email}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "email",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
+    "Method": "GetAll",
+    "RelativePath": "api/Clientes/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
     "Method": "GetByEmail",
-    "RelativePath": "api/Clientes/by-email/{email}",
+    "RelativePath": "api/Clientes/search-email/{email}",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
@@ -43,8 +59,24 @@
   },
   {
     "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
+    "Method": "SearchByName",
+    "RelativePath": "api/Clientes/search-name/{nombre}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "nombre",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
     "Method": "Update",
-    "RelativePath": "api/Clientes/by-email/{email}",
+    "RelativePath": "api/Clientes/update-by-email/{email}",
     "HttpMethod": "PUT",
     "IsController": true,
     "Order": 0,
@@ -63,15 +95,15 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "DeleteByEmail",
-    "RelativePath": "api/Clientes/by-email/{email}",
-    "HttpMethod": "DELETE",
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "GetDetallesByPedido",
+    "RelativePath": "api/Pedidos/{numeroPedido}/detalles",
+    "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "email",
+        "Name": "numeroPedido",
         "Type": "System.String",
         "IsRequired": true
       }
@@ -79,16 +111,147 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "Gestion_de_Pedidos.Controllers.ClientesController",
-    "Method": "SearchByName",
-    "RelativePath": "api/Clientes/search/{nombre}",
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "UpdateDetalle",
+    "RelativePath": "api/Pedidos/{numeroPedido}/detalles/{numeroDetalle}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "numeroPedido",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "numeroDetalle",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "Gestion_de_Pedidos.Dto.PedidoDto\u002BPedidoDetalleUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "DeleteDetalle",
+    "RelativePath": "api/Pedidos/{numeroPedido}/detalles/{numeroDetalle}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "numeroPedido",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "numeroDetalle",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "CreateDetalle",
+    "RelativePath": "api/Pedidos/{numeroPedido}/detalles/create",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "numeroPedido",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "Gestion_de_Pedidos.Dto.PedidoDto\u002BPedidoDetalleCreateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "GetAllCabeceras",
+    "RelativePath": "api/Pedidos/cabeceras",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "GetCabeceraByNumero",
+    "RelativePath": "api/Pedidos/cabeceras/{numeroPedido}",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "nombre",
+        "Name": "numeroPedido",
         "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "UpdateEstado",
+    "RelativePath": "api/Pedidos/cabeceras/{numeroPedido}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "numeroPedido",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "Gestion_de_Pedidos.Dto.PedidoDto\u002BPedidoCabeceraUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "DeletePedido",
+    "RelativePath": "api/Pedidos/cabeceras/{numeroPedido}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "numeroPedido",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Gestion_de_Pedidos.Controllers.PedidosController",
+    "Method": "Create",
+    "RelativePath": "api/Pedidos/create",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "Gestion_de_Pedidos.Dto.PedidoDto\u002BPedidoCabeceraCreateDto",
         "IsRequired": true
       }
     ],
