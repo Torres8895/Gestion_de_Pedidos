@@ -199,6 +199,7 @@ namespace Gestion_de_Pedidos.Service
             var cabecera = await _context.CabeceraPedidos
                 .Include(c => c.Cliente)
                 .Include(c => c.DetallesPedido)
+                    .ThenInclude(d => d.Producto)
                 .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
 
             if (cabecera == null)
