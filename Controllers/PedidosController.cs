@@ -37,6 +37,7 @@ namespace Gestion_de_Pedidos.Controllers
         public async Task<IActionResult> GetDetallesByPedido(string numeroPedido)
         {
             var detalles = await _service.GetDetallesByPedidoAsync(numeroPedido);
+            if (detalles == null) return NotFound(new { error = "Pedido pendiente no encontrado." });
             return Ok(detalles);
         }
 

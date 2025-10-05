@@ -245,7 +245,8 @@ namespace Gestion_de_Pedidos.Service
                 })
                 .ToListAsync();
             if (!detalles.Any())
-                throw new InvalidOperationException("Pedido pendiente no encontrado");
+                return null;
+            //throw new InvalidOperationException("Pedido pendiente no encontrado");
 
             return detalles;
         }
@@ -363,6 +364,9 @@ namespace Gestion_de_Pedidos.Service
             // Si solo queda 1 detalle, advertir al usuario
             if (totalDetalles == 2) // 2 porque aún no hemos eliminado el actual
             {
+                // Eliminar el detalle
+                _context.DetallePedidos.Remove(detalle);
+                await _context.SaveChangesAsync();
                 return new
                 {
                     warning = true,
@@ -391,6 +395,7 @@ namespace Gestion_de_Pedidos.Service
 
                     return new
                     {
+
                         pedidoCancelado = true,
                         message = "Detalle eliminado. Como era el último detalle, el pedido ha sido cancelado automáticamente.",
                         detalle = detalleEliminado,
