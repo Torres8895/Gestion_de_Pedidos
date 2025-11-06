@@ -109,9 +109,14 @@ namespace Gestion_de_Pedidos.Controllers
                     return BadRequest(new { error = "El email es requerido." });
 
                 var deleted = await _service.DeleteByEmailAsync(email);
-                if (!deleted)
+
+                if (deleted == null)
                     return NotFound(new { error = "Cliente no encontrado." });
-                return NoContent();
+
+                if (deleted == false)
+                    return BadRequest(new { error = "No se puede eliminar el cliente porque tiene pedidos asociados." });
+
+                return Ok(new { message = "Cliente eliminado correctamente." });
             }
             catch (Exception)
             {

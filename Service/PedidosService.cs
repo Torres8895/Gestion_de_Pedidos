@@ -21,9 +21,7 @@ namespace Gestion_de_Pedidos.Service
             _productoService = productoService;
         }
 
-        /// <summary>
-        /// Crear un nuevo pedido completo (cabecera + detalles) como una transacción
-        /// </summary>
+        /// Crea un nuevo pedido completo (cabecera + detalles) como una transacción
         public async Task<PedidoCabeceraReadDto> CreateAsync(PedidoCabeceraCreateDto pedidoDto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -94,6 +92,21 @@ namespace Gestion_de_Pedidos.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Crear",
+                        Mensaje = $"Pedido {numeroPedido} creado exitosamente con {pedidoDto.Detalles.Count} productos.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                }
+
                 // Retornar el pedido creado
                 return new PedidoCabeceraReadDto
                 {
@@ -105,323 +118,759 @@ namespace Gestion_de_Pedidos.Service
                     Total = total
                 };
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Crear",
+                        Mensaje = ex.Message,
+                        SqlSentencia = "INSERT INTO CabeceraPedidos ...; INSERT INTO DetallePedidos ...",
+                        Resultado = "Error"
+                    });
+
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                }
+
                 throw;
             }
         }
 
-        /// <summary>
         /// Obtener todas las cabeceras de pedidos (excluye cancelados)
-        /// </summary>
         public async Task<IEnumerable<PedidoCabeceraReadDto>> GetAllCabecerasAsync()
         {
-            return await _context.CabeceraPedidos
-                .Include(c => c.Cliente)
-                .Include(c => c.DetallesPedido)
-                    .ThenInclude(d => d.Producto)
-                .Where(c => c.Cliente.Activo == true && c.Estado != "Cancelado") // Excluir cancelados
-                .Select(c => new PedidoCabeceraReadDto
+            try
+            {
+                var pedidos = await _context.CabeceraPedidos
+                    .Include(c => c.Cliente)
+                    .Include(c => c.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                    .Where(c => c.Cliente.Activo == true && c.Estado != "Cancelado") // Excluir cancelados
+                    .Select(c => new PedidoCabeceraReadDto
+                    {
+                        NumeroPedido = c.NumeroPedido,
+                        NombreCliente = c.Cliente.Nombre,
+                        EmailCliente = c.Cliente.Email,
+                        Fecha = c.FechaPedido,
+                        Estado = c.Estado,
+                        Total = c.DetallesPedido
+                            .Where(d => d.Producto.Activo)
+                            .Sum(d => d.Producto.Precio * d.Cantidad)
+                    })
+                    .ToListAsync();
+
+                try
                 {
-                    NumeroPedido = c.NumeroPedido,
-                    NombreCliente = c.Cliente.Nombre,
-                    EmailCliente = c.Cliente.Email,
-                    Fecha = c.FechaPedido,
-                    Estado = c.Estado,
-                    Total = c.DetallesPedido
-                        .Where(d => d.Producto.Activo)
-                        .Sum(d => d.Producto.Precio * d.Cantidad)
-                })
-                .ToListAsync();
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Consultar Todos",
+                        Mensaje = $"Se consultaron {pedidos.Count} pedidos activos (excluyendo cancelados).",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                }
+
+                return pedidos;
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Consultar Todos",
+                        Mensaje = ex.Message,
+                        SqlSentencia = "SELECT * FROM CabeceraPedidos WHERE Estado != 'Cancelado';",
+                        Resultado = "Error"
+                    });
+
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                }
+
+                throw;
+            }
         }
 
-        /// <summary>
         /// Obtener una cabecera de pedido por número de pedido (excluye cancelados)
-        /// </summary>
         public async Task<PedidoCabeceraReadDto?> GetCabeceraByNumeroAsync(string numeroPedido)
         {
-            return await _context.CabeceraPedidos
-                .Include(c => c.Cliente)
-                .Include(c => c.DetallesPedido)
-                    .ThenInclude(d => d.Producto)
-                .Where(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true && c.Estado != "Cancelado")
-                .Select(c => new PedidoCabeceraReadDto
+            try
+            {
+                var pedido = await _context.CabeceraPedidos
+                    .Include(c => c.Cliente)
+                    .Include(c => c.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                    .Where(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true && c.Estado != "Cancelado")
+                    .Select(c => new PedidoCabeceraReadDto
+                    {
+                        NumeroPedido = c.NumeroPedido,
+                        NombreCliente = c.Cliente.Nombre,
+                        EmailCliente = c.Cliente.Email,
+                        Fecha = c.FechaPedido,
+                        Estado = c.Estado,
+                        Total = c.DetallesPedido
+                            .Where(d => d.Producto.Activo)
+                            .Sum(d => d.Producto.Precio * d.Cantidad)
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (pedido != null)
                 {
-                    NumeroPedido = c.NumeroPedido,
-                    NombreCliente = c.Cliente.Nombre,
-                    EmailCliente = c.Cliente.Email,
-                    Fecha = c.FechaPedido,
-                    Estado = c.Estado,
-                    Total = c.DetallesPedido
-                        .Where(d => d.Producto.Activo)
-                        .Sum(d => d.Producto.Precio * d.Cantidad)
-                })
-                .FirstOrDefaultAsync();
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "Pedido",
+                            Accion = "Consultar por Número",
+                            Mensaje = $"Pedido {numeroPedido} consultado correctamente.",
+                            Resultado = "Éxito"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch
+                    {
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "Pedido",
+                            Accion = "Consultar por Número",
+                            Mensaje = $"Pedido {numeroPedido} no encontrado.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return pedido;
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Consultar por Número",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"SELECT * FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}' AND Estado != 'Cancelado';",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                }
+
+                throw;
+            }
         }
 
-        /// <summary>
+
         /// Actualizar el estado de un pedido
-        /// </summary>
         public async Task<PedidoCabeceraReadDto?> UpdateEstadoAsync(string numeroPedido, PedidoCabeceraUpdateDto updateDto)
         {
-            var cabecera = await _context.CabeceraPedidos
-                .Include(c => c.Cliente)
-                .Include(c => c.DetallesPedido)
-                    .ThenInclude(d => d.Producto)
-                .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
-
-            if (cabecera == null)
-                return null;
-
-            cabecera.Estado = updateDto.Estado;
-            _context.CabeceraPedidos.Update(cabecera);
-            await _context.SaveChangesAsync();
-
-            return new PedidoCabeceraReadDto
-            {
-                NumeroPedido = cabecera.NumeroPedido,
-                NombreCliente = cabecera.Cliente.Nombre,
-                EmailCliente = cabecera.Cliente.Email,
-                Fecha = cabecera.FechaPedido,
-                Estado = cabecera.Estado,
-                Total = cabecera.DetallesPedido
-                    .Where(d => d.Producto.Activo)
-                    .Sum(d => d.Producto.Precio * d.Cantidad)
-            };
-        }
-
-        /// <summary>
-        /// Eliminar un pedido completo (soft delete - marca como inactivo)
-        /// </summary>
-        public async Task<PedidoCabeceraReadDto?> DeleteAsync(string numeroPedido)
-        {
-            var cabecera = await _context.CabeceraPedidos
-                .Include(c => c.Cliente)
-                .Include(c => c.DetallesPedido)
-                    .ThenInclude(d => d.Producto)
-                .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
-
-            if (cabecera == null)
-                return null;
-
-            // Soft delete: cambiar estado a "Cancelado" en lugar de eliminar físicamente
-            cabecera.Estado = "Cancelado";
-            _context.CabeceraPedidos.Update(cabecera);
-            await _context.SaveChangesAsync();
-
-            return new PedidoCabeceraReadDto
-            {
-                NumeroPedido = cabecera.NumeroPedido,
-                NombreCliente = cabecera.Cliente.Nombre,
-                EmailCliente = cabecera.Cliente.Email,
-                Fecha = cabecera.FechaPedido,
-                Estado = cabecera.Estado, // "Cancelado"
-                Total = cabecera.DetallesPedido
-                    .Where(d => d.Producto.Activo == true)
-                    .Sum(d => d.Producto.Precio * d.Cantidad)
-            };
-        }
-
-        /// <summary>
-        /// Obtener todos los detalles de un pedido específico
-        /// </summary>
-        public async Task<IEnumerable<PedidoDetalleReadDto>> GetDetallesByPedidoAsync(string numeroPedido)
-        {
-            var detalles = await _context.DetallePedidos
-                .Include(d => d.CabeceraPedido)
-                    .ThenInclude(c => c.Cliente)
-                .Include(d => d.Producto)
-                .Where(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
-                           d.CabeceraPedido.Cliente.Activo == true &&
-                           d.CabeceraPedido.Estado == "Pendiente" &&
-                           d.Producto.Activo == true)
-                .Select(d => new PedidoDetalleReadDto
-                {
-                    numeroDetalle = d.NumeroDetalle,
-                    Producto = d.Producto.Nombre,
-                    Cantidad = d.Cantidad,
-                    PrecioUnitario = d.Producto.Precio,
-                    Subtotal = d.Producto.Precio * d.Cantidad
-                })
-                .ToListAsync();
-            if (!detalles.Any())
-                return null;
-            //throw new InvalidOperationException("Pedido pendiente no encontrado");
-
-            return detalles;
-        }
-
-        /// <summary>
-        /// Agregar un detalle a un pedido existente
-        /// </summary>
-        public async Task<PedidoDetalleReadDto?> CreateDetalleAsync(string numeroPedido, PedidoDetalleCreateDto detalleDto)
-        {
-            var cabecera = await _context.CabeceraPedidos
-                .Include(c => c.Cliente)
-                .Include(c => c.DetallesPedido)
-                .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
-
-            if (cabecera == null)
-                return null;
-
-            // Validar que el producto existe usando ProductoService
-            var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId);
-            if (productoDto == null)
-                throw new InvalidOperationException("Producto no encontrado");
-
-            // Obtener producto completo para el precio
-            var producto = await _context.Productos
-                .FirstOrDefaultAsync(p => p.Id == detalleDto.ProductoId && p.Activo);
-
-            // Generar el siguiente número de detalle
-            var siguienteNumeroDetalle = cabecera.DetallesPedido.Any()
-                ? cabecera.DetallesPedido.Max(d => d.NumeroDetalle) + 1
-                : 1;
-
-            var detalle = new DetallePedido
-            {
-                NumeroDetalle = siguienteNumeroDetalle,
-                Cantidad = detalleDto.Cantidad,
-                CabeceraPedidoId = cabecera.Id,
-                ProductoId = detalleDto.ProductoId
-            };
-
-            _context.DetallePedidos.Add(detalle);
-            await _context.SaveChangesAsync();
-
-            return new PedidoDetalleReadDto
-            {
-                numeroDetalle = detalle.NumeroDetalle,
-                Producto = productoDto.Nombre,
-                Cantidad = detalle.Cantidad,
-                PrecioUnitario = productoDto.Precio,
-                Subtotal = productoDto.Precio * detalle.Cantidad
-            };
-        }
-
-        /// <summary>
-        /// Actualizar la cantidad de un detalle específico
-        /// </summary>
-        public async Task<PedidoDetalleReadDto?> UpdateDetalleAsync(string numeroPedido, int numeroDetalle, PedidoDetalleUpdateDto updateDto)
-        {
-            var detalle = await _context.DetallePedidos
-                .Include(d => d.CabeceraPedido)
-                    .ThenInclude(c => c.Cliente)
-                .Include(d => d.Producto)
-                .FirstOrDefaultAsync(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
-                                         d.NumeroDetalle == numeroDetalle &&
-                                         d.CabeceraPedido.Cliente.Activo == true &&
-                                         d.Producto.Activo == true);
-
-            if (detalle == null)
-                return null;
-
-            detalle.Cantidad = updateDto.Cantidad;
-            _context.DetallePedidos.Update(detalle);
-            await _context.SaveChangesAsync();
-
-            return new PedidoDetalleReadDto
-            {
-                numeroDetalle = detalle.NumeroDetalle,
-                Producto = detalle.Producto.Nombre,
-                Cantidad = detalle.Cantidad,
-                PrecioUnitario = detalle.Producto.Precio,
-                Subtotal = detalle.Producto.Precio * detalle.Cantidad
-            };
-        }
-
-        /// <summary>
-        /// Eliminar un detalle específico de un pedido
-        /// Con lógica automática de soft delete de cabecera si no quedan detalles
-        /// </summary>
-        public async Task<object> DeleteDetalleAsync(string numeroPedido, int numeroDetalle)
-        {
-            var detalle = await _context.DetallePedidos
-                .Include(d => d.CabeceraPedido)
-                    .ThenInclude(c => c.Cliente)
-                .Include(d => d.Producto)
-                .FirstOrDefaultAsync(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
-                                         d.NumeroDetalle == numeroDetalle &&
-                                         d.CabeceraPedido.Cliente.Activo == true &&
-                                         d.CabeceraPedido.Estado == "Pendiente"); // Verificación de pendiente
-
-            if (detalle == null)
-                return new { error = true, message = "Pedido pendiente no encontrado" };
-
-            // Verificar cuántos detalles quedarían después de eliminar este
-            var totalDetalles = await _context.DetallePedidos
-                .CountAsync(d => d.CabeceraPedidoId == detalle.CabeceraPedidoId);
-
-            var detalleEliminado = new PedidoDetalleReadDto
-            {
-                numeroDetalle = detalle.NumeroDetalle,
-                Producto = detalle.Producto.Nombre,
-                Cantidad = detalle.Cantidad,
-                PrecioUnitario = detalle.Producto.Precio,
-                Subtotal = detalle.Producto.Precio * detalle.Cantidad
-            };
-
-            // Si solo queda 1 detalle, advertir al usuario
-            if (totalDetalles == 2) // 2 porque aún no hemos eliminado el actual
-            {
-                // Eliminar el detalle
-                _context.DetallePedidos.Remove(detalle);
-                await _context.SaveChangesAsync();
-                return new
-                {
-                    warning = true,
-                    message = "ADVERTENCIA: Al eliminar el próximo detalle, se cancelará automáticamente todo el pedido.",
-                    detalle = detalleEliminado,
-                    detallesRestantes = 1
-                };
-            }
-
-            // Eliminar el detalle
-            _context.DetallePedidos.Remove(detalle);
-            await _context.SaveChangesAsync();
-
-            // Si era el último detalle, hacer soft delete automático de la cabecera
-            if (totalDetalles == 1) // Era el único detalle
+            try
             {
                 var cabecera = await _context.CabeceraPedidos
                     .Include(c => c.Cliente)
-                    .FirstOrDefaultAsync(c => c.Id == detalle.CabeceraPedidoId);
+                    .Include(c => c.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                    .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
 
-                if (cabecera != null)
+                if (cabecera == null)
                 {
-                    cabecera.Estado = "Cancelado";
-                    _context.CabeceraPedidos.Update(cabecera);
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "Pedido",
+                            Accion = "Actualizar Estado",
+                            Mensaje = $"Pedido {numeroPedido} no encontrado para actualizar estado.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return null;
+                }
+
+                cabecera.Estado = updateDto.Estado;
+                _context.CabeceraPedidos.Update(cabecera);
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Actualizar Estado",
+                        Mensaje = $"Estado del pedido {numeroPedido} actualizado a '{updateDto.Estado}'.",
+                        Resultado = "Éxito"
+                    });
                     await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return new PedidoCabeceraReadDto
+                {
+                    NumeroPedido = cabecera.NumeroPedido,
+                    NombreCliente = cabecera.Cliente.Nombre,
+                    EmailCliente = cabecera.Cliente.Email,
+                    Fecha = cabecera.FechaPedido,
+                    Estado = cabecera.Estado,
+                    Total = cabecera.DetallesPedido
+                        .Where(d => d.Producto.Activo)
+                        .Sum(d => d.Producto.Precio * d.Cantidad)
+                };
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Actualizar Estado",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"UPDATE CabeceraPedidos SET Estado = '{updateDto.Estado}' WHERE NumeroPedido = '{numeroPedido}';",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
+        }
+
+        /// Eliminar un pedido completo (soft delete - marca como inactivo)
+        public async Task<PedidoCabeceraReadDto?> DeleteAsync(string numeroPedido)
+        {
+            try
+            {
+                var cabecera = await _context.CabeceraPedidos
+                    .Include(c => c.Cliente)
+                    .Include(c => c.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                    .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
+
+                if (cabecera == null)
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "Pedido",
+                            Accion = "Eliminar",
+                            Mensaje = $"Pedido {numeroPedido} no encontrado para eliminar.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return null;
+                }
+
+                // Soft delete: cambiar estado a "Cancelado"
+                cabecera.Estado = "Cancelado";
+                _context.CabeceraPedidos.Update(cabecera);
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Eliminar",
+                        Mensaje = $"Pedido {numeroPedido} cancelado exitosamente.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return new PedidoCabeceraReadDto
+                {
+                    NumeroPedido = cabecera.NumeroPedido,
+                    NombreCliente = cabecera.Cliente.Nombre,
+                    EmailCliente = cabecera.Cliente.Email,
+                    Fecha = cabecera.FechaPedido,
+                    Estado = cabecera.Estado, // "Cancelado"
+                    Total = cabecera.DetallesPedido
+                        .Where(d => d.Producto.Activo)
+                        .Sum(d => d.Producto.Precio * d.Cantidad)
+                };
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "Pedido",
+                        Accion = "Eliminar",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"UPDATE CabeceraPedidos SET Estado = 'Cancelado' WHERE NumeroPedido = '{numeroPedido}';",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
+        }
+
+        /// Obtener todos los detalles de un pedido específico
+        public async Task<IEnumerable<PedidoDetalleReadDto>> GetDetallesByPedidoAsync(string numeroPedido)
+        {
+            try
+            {
+                var detalles = await _context.DetallePedidos
+                    .Include(d => d.CabeceraPedido)
+                        .ThenInclude(c => c.Cliente)
+                    .Include(d => d.Producto)
+                    .Where(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
+                                d.CabeceraPedido.Cliente.Activo == true &&
+                                d.CabeceraPedido.Estado == "Pendiente" &&
+                                d.Producto.Activo == true)
+                    .Select(d => new PedidoDetalleReadDto
+                    {
+                        numeroDetalle = d.NumeroDetalle,
+                        Producto = d.Producto.Nombre,
+                        Cantidad = d.Cantidad,
+                        PrecioUnitario = d.Producto.Precio,
+                        Subtotal = d.Producto.Precio * d.Cantidad
+                    })
+                    .ToListAsync();
+
+                if (!detalles.Any())
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Consultar por Pedido",
+                            Mensaje = $"No se encontraron detalles para el pedido {numeroPedido}.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return null;
+                }
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Consultar por Pedido",
+                        Mensaje = $"Detalles del pedido {numeroPedido} consultados correctamente. Total: {detalles.Count}.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return detalles;
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Consultar por Pedido",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"SELECT * FROM DetallePedidos WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND Estado = 'Pendiente';",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
+        }
+
+        /// Agregar un detalle a un pedido existente
+        public async Task<PedidoDetalleReadDto?> CreateDetalleAsync(string numeroPedido, PedidoDetalleCreateDto detalleDto)
+        {
+            try
+            {
+                var cabecera = await _context.CabeceraPedidos
+                    .Include(c => c.Cliente)
+                    .Include(c => c.DetallesPedido)
+                    .FirstOrDefaultAsync(c => c.NumeroPedido == numeroPedido && c.Cliente.Activo == true);
+
+                if (cabecera == null)
+                {
+                    // ⚠️ Log de negocio: cabecera no encontrada
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Crear",
+                            Mensaje = $"Error: Pedido con número {numeroPedido} no encontrado.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return null;
+                }
+
+                // Validar que el producto existe usando ProductoService
+                var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId);
+                if (productoDto == null)
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Crear",
+                            Mensaje = $"Error: Producto con ID {detalleDto.ProductoId} no encontrado para el pedido {numeroPedido}.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    throw new InvalidOperationException("Producto no encontrado");
+                }
+
+                // Obtener producto completo para el precio
+                var producto = await _context.Productos
+                    .FirstOrDefaultAsync(p => p.Id == detalleDto.ProductoId && p.Activo);
+
+                // Generar el siguiente número de detalle
+                var siguienteNumeroDetalle = cabecera.DetallesPedido.Any()
+                    ? cabecera.DetallesPedido.Max(d => d.NumeroDetalle) + 1
+                    : 1;
+
+                var detalle = new DetallePedido
+                {
+                    NumeroDetalle = siguienteNumeroDetalle,
+                    Cantidad = detalleDto.Cantidad,
+                    CabeceraPedidoId = cabecera.Id,
+                    ProductoId = detalleDto.ProductoId
+                };
+
+                _context.DetallePedidos.Add(detalle);
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Crear",
+                        Mensaje = $"Detalle {detalle.NumeroDetalle} agregado al pedido {numeroPedido} correctamente.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return new PedidoDetalleReadDto
+                {
+                    numeroDetalle = detalle.NumeroDetalle,
+                    Producto = productoDto.Nombre,
+                    Cantidad = detalle.Cantidad,
+                    PrecioUnitario = productoDto.Precio,
+                    Subtotal = productoDto.Precio * detalle.Cantidad
+                };
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Crear",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"INSERT INTO DetallePedidos ... WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}');",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
+        }
+
+        /// Actualizar la cantidad de un detalle específico
+        public async Task<PedidoDetalleReadDto?> UpdateDetalleAsync(string numeroPedido, int numeroDetalle, PedidoDetalleUpdateDto updateDto)
+        {
+            try
+            {
+                var detalle = await _context.DetallePedidos
+                    .Include(d => d.CabeceraPedido)
+                        .ThenInclude(c => c.Cliente)
+                    .Include(d => d.Producto)
+                    .FirstOrDefaultAsync(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
+                                             d.NumeroDetalle == numeroDetalle &&
+                                             d.CabeceraPedido.Cliente.Activo == true &&
+                                             d.Producto.Activo == true);
+
+                if (detalle == null)
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Actualizar",
+                            Mensaje = $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return null;
+                }
+
+                detalle.Cantidad = updateDto.Cantidad;
+                _context.DetallePedidos.Update(detalle);
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Actualizar",
+                        Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} actualizado correctamente.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return new PedidoDetalleReadDto
+                {
+                    numeroDetalle = detalle.NumeroDetalle,
+                    Producto = detalle.Producto.Nombre,
+                    Cantidad = detalle.Cantidad,
+                    PrecioUnitario = detalle.Producto.Precio,
+                    Subtotal = detalle.Producto.Precio * detalle.Cantidad
+                };
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Actualizar",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"UPDATE DetallePedidos SET Cantidad = {updateDto.Cantidad} WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND NumeroDetalle = {numeroDetalle};",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
+        }
+
+        /// Elimina un detalle específico de un pedido
+        /// Con lógica automática de soft delete de cabecera si no quedan detalles
+        public async Task<object> DeleteDetalleAsync(string numeroPedido, int numeroDetalle)
+        {
+            try
+            {
+                var detalle = await _context.DetallePedidos
+                    .Include(d => d.CabeceraPedido)
+                        .ThenInclude(c => c.Cliente)
+                    .Include(d => d.Producto)
+                    .FirstOrDefaultAsync(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
+                                             d.NumeroDetalle == numeroDetalle &&
+                                             d.CabeceraPedido.Cliente.Activo == true &&
+                                             d.CabeceraPedido.Estado == "Pendiente"); // Verificación de pendiente
+
+                if (detalle == null)
+                {
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Eliminar",
+                            Mensaje = $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado.",
+                            Resultado = "Error"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
+
+                    return new { error = true, message = "Pedido pendiente no encontrado" };
+                }
+
+                var totalDetalles = await _context.DetallePedidos
+                    .CountAsync(d => d.CabeceraPedidoId == detalle.CabeceraPedidoId);
+
+                var detalleEliminado = new PedidoDetalleReadDto
+                {
+                    numeroDetalle = detalle.NumeroDetalle,
+                    Producto = detalle.Producto.Nombre,
+                    Cantidad = detalle.Cantidad,
+                    PrecioUnitario = detalle.Producto.Precio,
+                    Subtotal = detalle.Producto.Precio * detalle.Cantidad
+                };
+
+                // Caso advertencia
+                if (totalDetalles == 2) // 2 porque aún no hemos eliminado el actual
+                {
+                    _context.DetallePedidos.Remove(detalle);
+                    await _context.SaveChangesAsync();
+
+                    try
+                    {
+                        _context.NegocioLog.Add(new NegocioLog
+                        {
+                            Entidad = "PedidoDetalle",
+                            Accion = "Eliminar",
+                            Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado. Advertencia: solo queda un detalle.",
+                            Resultado = "Éxito"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    catch { }
 
                     return new
                     {
-
-                        pedidoCancelado = true,
-                        message = "Detalle eliminado. Como era el último detalle, el pedido ha sido cancelado automáticamente.",
+                        warning = true,
+                        message = "ADVERTENCIA: Al eliminar el próximo detalle, se cancelará automáticamente todo el pedido.",
                         detalle = detalleEliminado,
-                        pedido = new
-                        {
-                            numeroPedido = cabecera.NumeroPedido,
-                            estado = cabecera.Estado
-                        }
+                        detallesRestantes = 1
                     };
                 }
-            }
 
-            // Eliminación normal de detalle
-            return new
+                // Eliminación normal
+                _context.DetallePedidos.Remove(detalle);
+                await _context.SaveChangesAsync();
+
+                // Si era el último detalle, soft delete automático de cabecera
+                if (totalDetalles == 1)
+                {
+                    var cabecera = await _context.CabeceraPedidos
+                        .Include(c => c.Cliente)
+                        .FirstOrDefaultAsync(c => c.Id == detalle.CabeceraPedidoId);
+
+                    if (cabecera != null)
+                    {
+                        cabecera.Estado = "Cancelado";
+                        _context.CabeceraPedidos.Update(cabecera);
+                        await _context.SaveChangesAsync();
+
+                        try
+                        {
+                            _context.NegocioLog.Add(new NegocioLog
+                            {
+                                Entidad = "PedidoDetalle",
+                                Accion = "Eliminar",
+                                Mensaje = $"Detalle {numeroDetalle} eliminado. Pedido {numeroPedido} cancelado automáticamente.",
+                                Resultado = "Éxito"
+                            });
+                            await _context.SaveChangesAsync();
+                        }
+                        catch { }
+
+                        return new
+                        {
+                            pedidoCancelado = true,
+                            message = "Detalle eliminado. Como era el último detalle, el pedido ha sido cancelado automáticamente.",
+                            detalle = detalleEliminado,
+                            pedido = new
+                            {
+                                numeroPedido = cabecera.NumeroPedido,
+                                estado = cabecera.Estado
+                            }
+                        };
+                    }
+                }
+
+                try
+                {
+                    _context.NegocioLog.Add(new NegocioLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Eliminar",
+                        Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado exitosamente.",
+                        Resultado = "Éxito"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                return new
+                {
+                    success = true,
+                    message = "Detalle eliminado exitosamente.",
+                    detalle = detalleEliminado,
+                    detallesRestantes = totalDetalles - 1
+                };
+            }
+            catch (Exception ex)
             {
-                success = true,
-                message = "Detalle eliminado exitosamente.",
-                detalle = detalleEliminado,
-                detallesRestantes = totalDetalles - 1
-            };
+                try
+                {
+                    _context.SqlLog.Add(new SqlLog
+                    {
+                        Entidad = "PedidoDetalle",
+                        Accion = "Eliminar",
+                        Mensaje = ex.Message,
+                        SqlSentencia = $"DELETE FROM DetallePedidos WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND NumeroDetalle = {numeroDetalle};",
+                        Resultado = "Error"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+
+                throw;
+            }
         }
 
-        /// <summary>
+
         /// Generar un número de pedido único de 4 dígitos
-        /// </summary>
         private async Task<string> GenerarNumeroPedidoAsync()
         {
             var ultimoCabecera = await _context.CabeceraPedidos

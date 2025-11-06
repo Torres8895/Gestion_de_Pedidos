@@ -82,11 +82,22 @@ namespace Gestion_de_Pedidos.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var productoEliminado = await _service.DeleteAsync(id);
-            if (productoEliminado == null)
-                return NotFound();
+            try
+            {
+                var deleted = await _service.DeleteAsync(id);
 
-            return NoContent();
+                if (deleted == null)
+                    return NotFound(new { error = "Producto no encontrado." });
+
+                if (deleted == false)
+                    return BadRequest(new { error = "No se puede eliminar el producto porque está asociado a pedidos activos." });
+
+                return Ok(new { message = "Producto eliminado correctamente." });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor." });
+            }
         }
     }
 }
