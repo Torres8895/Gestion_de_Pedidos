@@ -10,53 +10,73 @@ namespace Gestion_de_Pedidos.Service
         private readonly ApplicationDbContext _context;
         private readonly ClientesService _clientesService;
         private readonly ProductoService _productoService;
+        private readonly ContinuousLogger _logger;
 
         public PedidosService(
             ApplicationDbContext context,
             ClientesService clientesService,
-            ProductoService productoService)
+            ProductoService productoService,
+            ContinuousLogger logger)
         {
             _context = context;
             _clientesService = clientesService;
             _productoService = productoService;
+            _logger = logger;
         }
 
-        /// Crea un nuevo pedido completo (cabecera + detalles) como una transacción
-        public async Task<PedidoCabeceraReadDto> CreateAsync(PedidoCabeceraCreateDto pedidoDto)
+        public async Task<PedidoCabeceraReadDto> CreateAsync(PedidoCabeceraCreateDto pedidoDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // Validar que el cliente existe usando ClientesService
-                var clienteDto = await _clientesService.GetByEmailAsync(pedidoDto.EmailCliente);
-                if (clienteDto == null)
-                    throw new InvalidOperationException("Cliente no encontrado");
+                var logIdInterno = Guid.NewGuid().ToString();
 
-                // Obtener el cliente completo para usar su ID
+                var clienteDto = await _clientesService.GetByEmailAsync(pedidoDto.EmailCliente, logIdInterno);
+                if (clienteDto == null)
+                {
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Error: Cliente con email {pedidoDto.EmailCliente} no encontrado",
+                        sql,
+                        "Error"
+                    );
+                    throw new InvalidOperationException("Cliente no encontrado");
+                }
+
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c => c.Email == pedidoDto.EmailCliente && c.Activo == true);
 
-                // Validar que todos los productos existen usando ProductoService
                 var productosValidos = new List<int>();
                 foreach (var detalleDto in pedidoDto.Detalles)
                 {
-                    var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId);
+                    var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId, logIdInterno);
                     if (productoDto == null)
+                    {
+                        var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                        await _logger.CompletarLogDesdeServicio(
+                            logId,
+                            $"Error: Producto con ID {detalleDto.ProductoId} no encontrado",
+                            sql,
+                            "Error"
+                        );
                         throw new InvalidOperationException($"Producto con ID {detalleDto.ProductoId} no encontrado");
+                    }
 
                     productosValidos.Add(detalleDto.ProductoId);
                 }
 
-                // Obtener productos completos para calcular totales
                 var productos = await _context.Productos
                     .Where(p => productosValidos.Contains(p.Id) && p.Activo)
                     .ToDictionaryAsync(p => p.Id, p => p);
 
-                // Generar número de pedido único
                 var numeroPedido = await GenerarNumeroPedidoAsync();
 
-                // Crear cabecera del pedido
                 var cabecera = new CabeceraPedido
                 {
                     NumeroPedido = numeroPedido,
@@ -68,7 +88,6 @@ namespace Gestion_de_Pedidos.Service
                 _context.CabeceraPedidos.Add(cabecera);
                 await _context.SaveChangesAsync();
 
-                // Crear detalles del pedido
                 var total = 0m;
                 var numeroDetalle = 1;
 
@@ -92,22 +111,15 @@ namespace Gestion_de_Pedidos.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Crear",
-                        Mensaje = $"Pedido {numeroPedido} creado exitosamente con {pedidoDto.Detalles.Count} productos.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch
-                {
-                }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
 
-                // Retornar el pedido creado
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Pedido {numeroPedido} creado exitosamente con {pedidoDto.Detalles.Count} productos",
+                    sqlFinal,
+                    "Éxito"
+                );
+
                 return new PedidoCabeceraReadDto
                 {
                     NumeroPedido = cabecera.NumeroPedido,
@@ -122,37 +134,30 @@ namespace Gestion_de_Pedidos.Service
             {
                 await transaction.RollbackAsync();
 
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Crear",
-                        Mensaje = ex.Message,
-                        SqlSentencia = "INSERT INTO CabeceraPedidos ...; INSERT INTO DetallePedidos ...",
-                        Resultado = "Error"
-                    });
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
 
-                    await _context.SaveChangesAsync();
-                }
-                catch
-                {
-                }
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al crear pedido: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Obtener todas las cabeceras de pedidos (excluye cancelados)
-        public async Task<IEnumerable<PedidoCabeceraReadDto>> GetAllCabecerasAsync()
+        public async Task<IEnumerable<PedidoCabeceraReadDto>> GetAllCabecerasAsync(string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var pedidos = await _context.CabeceraPedidos
                     .Include(c => c.Cliente)
                     .Include(c => c.DetallesPedido)
                         .ThenInclude(d => d.Producto)
-                    .Where(c => c.Cliente.Activo == true && c.Estado != "Cancelado") // Excluir cancelados
+                    .Where(c => c.Cliente.Activo == true && c.Estado != "Cancelado")
                     .Select(c => new PedidoCabeceraReadDto
                     {
                         NumeroPedido = c.NumeroPedido,
@@ -166,49 +171,36 @@ namespace Gestion_de_Pedidos.Service
                     })
                     .ToListAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Consultar Todos",
-                        Mensaje = $"Se consultaron {pedidos.Count} pedidos activos (excluyendo cancelados).",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch
-                {
-                }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Se consultaron {pedidos.Count} pedidos activos (excluyendo cancelados)",
+                    sql,
+                    "Éxito"
+                );
 
                 return pedidos;
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Consultar Todos",
-                        Mensaje = ex.Message,
-                        SqlSentencia = "SELECT * FROM CabeceraPedidos WHERE Estado != 'Cancelado';",
-                        Resultado = "Error"
-                    });
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
 
-                    await _context.SaveChangesAsync();
-                }
-                catch
-                {
-                }
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al consultar pedidos: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Obtener una cabecera de pedido por número de pedido (excluye cancelados)
-        public async Task<PedidoCabeceraReadDto?> GetCabeceraByNumeroAsync(string numeroPedido)
+        public async Task<PedidoCabeceraReadDto?> GetCabeceraByNumeroAsync(string numeroPedido, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var pedido = await _context.CabeceraPedidos
@@ -229,69 +221,48 @@ namespace Gestion_de_Pedidos.Service
                     })
                     .FirstOrDefaultAsync();
 
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
                 if (pedido != null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "Pedido",
-                            Accion = "Consultar por Número",
-                            Mensaje = $"Pedido {numeroPedido} consultado correctamente.",
-                            Resultado = "Éxito"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch
-                    {
-                    }
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Pedido {numeroPedido} consultado correctamente",
+                        sql,
+                        "Éxito"
+                    );
                 }
                 else
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "Pedido",
-                            Accion = "Consultar por Número",
-                            Mensaje = $"Pedido {numeroPedido} no encontrado.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch
-                    {
-                    }
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Pedido {numeroPedido} no encontrado",
+                        sql,
+                        "Error"
+                    );
                 }
 
                 return pedido;
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Consultar por Número",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"SELECT * FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}' AND Estado != 'Cancelado';",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch
-                {
-                }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al consultar pedido por número: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-
-        /// Actualizar el estado de un pedido
-        public async Task<PedidoCabeceraReadDto?> UpdateEstadoAsync(string numeroPedido, PedidoCabeceraUpdateDto updateDto)
+        public async Task<PedidoCabeceraReadDto?> UpdateEstadoAsync(string numeroPedido, PedidoCabeceraUpdateDto updateDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cabecera = await _context.CabeceraPedidos
@@ -302,18 +273,14 @@ namespace Gestion_de_Pedidos.Service
 
                 if (cabecera == null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "Pedido",
-                            Accion = "Actualizar Estado",
-                            Mensaje = $"Pedido {numeroPedido} no encontrado para actualizar estado.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Pedido {numeroPedido} no encontrado para actualizar estado",
+                        sql,
+                        "Error"
+                    );
 
                     return null;
                 }
@@ -322,18 +289,14 @@ namespace Gestion_de_Pedidos.Service
                 _context.CabeceraPedidos.Update(cabecera);
                 await _context.SaveChangesAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Actualizar Estado",
-                        Mensaje = $"Estado del pedido {numeroPedido} actualizado a '{updateDto.Estado}'.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Estado del pedido {numeroPedido} actualizado a '{updateDto.Estado}'",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new PedidoCabeceraReadDto
                 {
@@ -349,27 +312,23 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Actualizar Estado",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"UPDATE CabeceraPedidos SET Estado = '{updateDto.Estado}' WHERE NumeroPedido = '{numeroPedido}';",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al actualizar estado del pedido: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Eliminar un pedido completo (soft delete - marca como inactivo)
-        public async Task<PedidoCabeceraReadDto?> DeleteAsync(string numeroPedido)
+        public async Task<PedidoCabeceraReadDto?> DeleteAsync(string numeroPedido, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cabecera = await _context.CabeceraPedidos
@@ -380,39 +339,30 @@ namespace Gestion_de_Pedidos.Service
 
                 if (cabecera == null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "Pedido",
-                            Accion = "Eliminar",
-                            Mensaje = $"Pedido {numeroPedido} no encontrado para eliminar.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Pedido {numeroPedido} no encontrado para eliminar",
+                        sql,
+                        "Error"
+                    );
 
                     return null;
                 }
 
-                // Soft delete: cambiar estado a "Cancelado"
                 cabecera.Estado = "Cancelado";
                 _context.CabeceraPedidos.Update(cabecera);
                 await _context.SaveChangesAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Eliminar",
-                        Mensaje = $"Pedido {numeroPedido} cancelado exitosamente.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Pedido {numeroPedido} cancelado exitosamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new PedidoCabeceraReadDto
                 {
@@ -420,7 +370,7 @@ namespace Gestion_de_Pedidos.Service
                     NombreCliente = cabecera.Cliente.Nombre,
                     EmailCliente = cabecera.Cliente.Email,
                     Fecha = cabecera.FechaPedido,
-                    Estado = cabecera.Estado, // "Cancelado"
+                    Estado = cabecera.Estado,
                     Total = cabecera.DetallesPedido
                         .Where(d => d.Producto.Activo)
                         .Sum(d => d.Producto.Precio * d.Cantidad)
@@ -428,27 +378,23 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "Pedido",
-                        Accion = "Eliminar",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"UPDATE CabeceraPedidos SET Estado = 'Cancelado' WHERE NumeroPedido = '{numeroPedido}';",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al eliminar pedido: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Obtener todos los detalles de un pedido específico
-        public async Task<IEnumerable<PedidoDetalleReadDto>> GetDetallesByPedidoAsync(string numeroPedido)
+        public async Task<IEnumerable<PedidoDetalleReadDto>> GetDetallesByPedidoAsync(string numeroPedido, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var detalles = await _context.DetallePedidos
@@ -469,62 +415,48 @@ namespace Gestion_de_Pedidos.Service
                     })
                     .ToListAsync();
 
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
                 if (!detalles.Any())
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Consultar por Pedido",
-                            Mensaje = $"No se encontraron detalles para el pedido {numeroPedido}.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"No se encontraron detalles para el pedido {numeroPedido}",
+                        sql,
+                        "Error"
+                    );
 
                     return null;
                 }
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Consultar por Pedido",
-                        Mensaje = $"Detalles del pedido {numeroPedido} consultados correctamente. Total: {detalles.Count}.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Detalles del pedido {numeroPedido} consultados correctamente. Total: {detalles.Count}",
+                    sql,
+                    "Éxito"
+                );
 
                 return detalles;
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Consultar por Pedido",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"SELECT * FROM DetallePedidos WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND Estado = 'Pendiente';",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al consultar detalles del pedido: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Agregar un detalle a un pedido existente
-        public async Task<PedidoDetalleReadDto?> CreateDetalleAsync(string numeroPedido, PedidoDetalleCreateDto detalleDto)
+        public async Task<PedidoDetalleReadDto?> CreateDetalleAsync(string numeroPedido, PedidoDetalleCreateDto detalleDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cabecera = await _context.CabeceraPedidos
@@ -534,48 +466,38 @@ namespace Gestion_de_Pedidos.Service
 
                 if (cabecera == null)
                 {
-                    // ⚠️ Log de negocio: cabecera no encontrada
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Crear",
-                            Mensaje = $"Error: Pedido con número {numeroPedido} no encontrado.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Error: Pedido con número {numeroPedido} no encontrado",
+                        sql,
+                        "Error"
+                    );
 
                     return null;
                 }
 
-                // Validar que el producto existe usando ProductoService
-                var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId);
+                var logIdInterno = Guid.NewGuid().ToString();
+
+                var productoDto = await _productoService.GetByIdAsync(detalleDto.ProductoId, logIdInterno);
                 if (productoDto == null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Crear",
-                            Mensaje = $"Error: Producto con ID {detalleDto.ProductoId} no encontrado para el pedido {numeroPedido}.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Error: Producto con ID {detalleDto.ProductoId} no encontrado para el pedido {numeroPedido}",
+                        sql,
+                        "Error"
+                    );
 
                     throw new InvalidOperationException("Producto no encontrado");
                 }
 
-                // Obtener producto completo para el precio
                 var producto = await _context.Productos
                     .FirstOrDefaultAsync(p => p.Id == detalleDto.ProductoId && p.Activo);
 
-                // Generar el siguiente número de detalle
                 var siguienteNumeroDetalle = cabecera.DetallesPedido.Any()
                     ? cabecera.DetallesPedido.Max(d => d.NumeroDetalle) + 1
                     : 1;
@@ -591,18 +513,14 @@ namespace Gestion_de_Pedidos.Service
                 _context.DetallePedidos.Add(detalle);
                 await _context.SaveChangesAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Crear",
-                        Mensaje = $"Detalle {detalle.NumeroDetalle} agregado al pedido {numeroPedido} correctamente.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Detalle {detalle.NumeroDetalle} agregado al pedido {numeroPedido} correctamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new PedidoDetalleReadDto
                 {
@@ -615,27 +533,23 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Crear",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"INSERT INTO DetallePedidos ... WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}');",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al crear detalle: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Actualizar la cantidad de un detalle específico
-        public async Task<PedidoDetalleReadDto?> UpdateDetalleAsync(string numeroPedido, int numeroDetalle, PedidoDetalleUpdateDto updateDto)
+        public async Task<PedidoDetalleReadDto?> UpdateDetalleAsync(string numeroPedido, int numeroDetalle, PedidoDetalleUpdateDto updateDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var detalle = await _context.DetallePedidos
@@ -649,18 +563,14 @@ namespace Gestion_de_Pedidos.Service
 
                 if (detalle == null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Actualizar",
-                            Mensaje = $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado",
+                        sql,
+                        "Error"
+                    );
 
                     return null;
                 }
@@ -669,18 +579,14 @@ namespace Gestion_de_Pedidos.Service
                 _context.DetallePedidos.Update(detalle);
                 await _context.SaveChangesAsync();
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Actualizar",
-                        Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} actualizado correctamente.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Detalle {numeroDetalle} del pedido {numeroPedido} actualizado correctamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new PedidoDetalleReadDto
                 {
@@ -693,28 +599,23 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Actualizar",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"UPDATE DetallePedidos SET Cantidad = {updateDto.Cantidad} WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND NumeroDetalle = {numeroDetalle};",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al actualizar detalle: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-        /// Elimina un detalle específico de un pedido
-        /// Con lógica automática de soft delete de cabecera si no quedan detalles
-        public async Task<object> DeleteDetalleAsync(string numeroPedido, int numeroDetalle)
+        public async Task<object> DeleteDetalleAsync(string numeroPedido, int numeroDetalle, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var detalle = await _context.DetallePedidos
@@ -724,22 +625,18 @@ namespace Gestion_de_Pedidos.Service
                     .FirstOrDefaultAsync(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
                                              d.NumeroDetalle == numeroDetalle &&
                                              d.CabeceraPedido.Cliente.Activo == true &&
-                                             d.CabeceraPedido.Estado == "Pendiente"); // Verificación de pendiente
+                                             d.CabeceraPedido.Estado == "Pendiente");
 
                 if (detalle == null)
                 {
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Eliminar",
-                            Mensaje = $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado.",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Error: Detalle {numeroDetalle} del pedido {numeroPedido} no encontrado",
+                        sql,
+                        "Error"
+                    );
 
                     return new { error = true, message = "Pedido pendiente no encontrado" };
                 }
@@ -756,24 +653,19 @@ namespace Gestion_de_Pedidos.Service
                     Subtotal = detalle.Producto.Precio * detalle.Cantidad
                 };
 
-                // Caso advertencia
-                if (totalDetalles == 2) // 2 porque aún no hemos eliminado el actual
+                if (totalDetalles == 2)
                 {
                     _context.DetallePedidos.Remove(detalle);
                     await _context.SaveChangesAsync();
 
-                    try
-                    {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "PedidoDetalle",
-                            Accion = "Eliminar",
-                            Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado. Advertencia: solo queda un detalle.",
-                            Resultado = "Éxito"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                    catch { }
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado. Advertencia: solo queda un detalle",
+                        sql,
+                        "Éxito"
+                    );
 
                     return new
                     {
@@ -784,11 +676,9 @@ namespace Gestion_de_Pedidos.Service
                     };
                 }
 
-                // Eliminación normal
                 _context.DetallePedidos.Remove(detalle);
                 await _context.SaveChangesAsync();
 
-                // Si era el último detalle, soft delete automático de cabecera
                 if (totalDetalles == 1)
                 {
                     var cabecera = await _context.CabeceraPedidos
@@ -801,18 +691,14 @@ namespace Gestion_de_Pedidos.Service
                         _context.CabeceraPedidos.Update(cabecera);
                         await _context.SaveChangesAsync();
 
-                        try
-                        {
-                            _context.NegocioLog.Add(new NegocioLog
-                            {
-                                Entidad = "PedidoDetalle",
-                                Accion = "Eliminar",
-                                Mensaje = $"Detalle {numeroDetalle} eliminado. Pedido {numeroPedido} cancelado automáticamente.",
-                                Resultado = "Éxito"
-                            });
-                            await _context.SaveChangesAsync();
-                        }
-                        catch { }
+                        var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                        await _logger.CompletarLogDesdeServicio(
+                            logId,
+                            $"Detalle {numeroDetalle} eliminado. Pedido {numeroPedido} cancelado automáticamente",
+                            sql,
+                            "Éxito"
+                        );
 
                         return new
                         {
@@ -828,18 +714,14 @@ namespace Gestion_de_Pedidos.Service
                     }
                 }
 
-                try
-                {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Eliminar",
-                        Mensaje = $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado exitosamente.",
-                        Resultado = "Éxito"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Detalle {numeroDetalle} del pedido {numeroPedido} eliminado exitosamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new
                 {
@@ -851,26 +733,19 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                try
-                {
-                    _context.SqlLog.Add(new SqlLog
-                    {
-                        Entidad = "PedidoDetalle",
-                        Accion = "Eliminar",
-                        Mensaje = ex.Message,
-                        SqlSentencia = $"DELETE FROM DetallePedidos WHERE CabeceraPedidoId = (SELECT Id FROM CabeceraPedidos WHERE NumeroPedido = '{numeroPedido}') AND NumeroDetalle = {numeroDetalle};",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                catch { }
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al eliminar detalle: {ex.Message}",
+                    sql,
+                    "Error"
+                );
 
                 throw;
             }
         }
 
-
-        /// Generar un número de pedido único de 4 dígitos
         private async Task<string> GenerarNumeroPedidoAsync()
         {
             var ultimoCabecera = await _context.CabeceraPedidos
@@ -888,7 +763,6 @@ namespace Gestion_de_Pedidos.Service
                 return siguienteNumero.ToString("D4");
             }
 
-            // Si no se puede parsear, generar basado en el conteo total
             var totalPedidos = await _context.CabeceraPedidos.CountAsync();
             return (totalPedidos + 1).ToString("D4");
         }

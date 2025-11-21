@@ -8,17 +8,19 @@ namespace Gestion_de_Pedidos.Service
 {
     public class ClientesService
     {
-
         private readonly ApplicationDbContext _context;
+        private readonly ContinuousLogger _logger;
 
-        public ClientesService(ApplicationDbContext context)
+        public ClientesService(ApplicationDbContext context, ContinuousLogger logger)
         {
             _context = context;
+            _logger = logger;
         }
 
-        // Obtener todos los clientes activos   
-        public async Task<IEnumerable<ClienteReadDto>> GetAllAsync()
+        public async Task<IEnumerable<ClienteReadDto>> GetAllAsync(string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var clientes = await _context.Clientes
@@ -30,63 +32,61 @@ namespace Gestion_de_Pedidos.Service
                     })
                     .ToListAsync();
 
-                _context.NegocioLog.Add(new NegocioLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Consultar Todos",
-                    Mensaje = $"Se consultaron {clientes.Count} clientes activos.",
-                    Resultado = "Exito"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Se consultaron {clientes.Count} clientes activos",
+                    sql,
+                    "Éxito"
+                );
 
                 return clientes;
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Consultar Todos",
-                    Mensaje = ex.Message,
-                    SqlSentencia = "SELECT * FROM Clientes WHERE Activo = 1",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al consultar clientes: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }
 
-        // Obtener cliente por email (para usar como identificador alternativo)
-        public async Task<ClienteReadDto?> GetByEmailAsync(string email)
+        public async Task<ClienteReadDto?> GetByEmailAsync(string email, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cliente = await _context.Clientes
                     .Where(c => c.Email == email && c.Activo == true)
                     .FirstOrDefaultAsync();
 
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
                 if (cliente == null)
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Consultar por Email",
-                        Mensaje = $"Intento de consultar cliente inexistente con Email={email}",
-                        Resultado = "Error"
-                    });
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Intento de consultar cliente inexistente con Email={email}",
+                        sql,
+                        "Error"
+                    );
                 }
                 else
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Consultar por Email",
-                        Mensaje = $"Cliente {cliente.Nombre} consultado correctamente.",
-                        Resultado = "Exito"
-                    });
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Cliente {cliente.Nombre} consultado correctamente",
+                        sql,
+                        "Éxito"
+                    );
                 }
-
-                await _context.SaveChangesAsync();
 
                 return cliente == null ? null : new ClienteReadDto
                 {
@@ -96,22 +96,22 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Consultar por Email",
-                    Mensaje = ex.Message,
-                    SqlSentencia = $"SELECT * FROM Clientes WHERE Email='{email}' AND Activo=1",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al consultar cliente por email: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }
 
-        // Crear nuevo cliente
-        public async Task<ClienteReadDto> CreateAsync(ClienteCreateDto clienteDto)
+        public async Task<ClienteReadDto> CreateAsync(ClienteCreateDto clienteDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var existeEmail = await _context.Clientes
@@ -119,14 +119,14 @@ namespace Gestion_de_Pedidos.Service
 
                 if (existeEmail)
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Crear",
-                        Mensaje = $"Intento de crear cliente duplicado: {clienteDto.Email}",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Intento de crear cliente duplicado: {clienteDto.Email}",
+                        sql,
+                        "Error"
+                    );
                     throw new InvalidOperationException("Ese email ya esta registrado.");
                 }
 
@@ -140,14 +140,14 @@ namespace Gestion_de_Pedidos.Service
                 _context.Clientes.Add(cliente);
                 await _context.SaveChangesAsync();
 
-                _context.NegocioLog.Add(new NegocioLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Crear",
-                    Mensaje = $"Cliente {cliente.Nombre} creado correctamente.",
-                    Resultado = "Exito"
-                });
-                await _context.SaveChangesAsync();
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Cliente {cliente.Nombre} creado correctamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new ClienteReadDto
                 {
@@ -161,22 +161,22 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Crear",
-                    Mensaje = ex.Message,
-                    SqlSentencia = $"INSERT Cliente: Nombre={clienteDto.Nombre}, Email={clienteDto.Email}",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al crear cliente: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }
 
-        // Actualizar cliente
-        public async Task<ClienteReadDto?> UpdateAsync(string email, ClienteUpdateDto clienteDto)
+        public async Task<ClienteReadDto?> UpdateAsync(string email, ClienteUpdateDto clienteDto, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cliente = await _context.Clientes
@@ -184,14 +184,14 @@ namespace Gestion_de_Pedidos.Service
 
                 if (cliente == null)
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Actualizar",
-                        Mensaje = $"Intento de actualizar cliente inexistente con Email={email}",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Intento de actualizar cliente inexistente con Email={email}",
+                        sql,
+                        "Error"
+                    );
                     return null;
                 }
 
@@ -207,27 +207,27 @@ namespace Gestion_de_Pedidos.Service
                     if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true ||
                         ex.InnerException?.Message.Contains("duplicate key") == true)
                     {
-                        _context.NegocioLog.Add(new NegocioLog
-                        {
-                            Entidad = "Cliente",
-                            Accion = "Actualizar",
-                            Mensaje = $"Intento de actualizar cliente a email duplicado: {clienteDto.Email}",
-                            Resultado = "Error"
-                        });
-                        await _context.SaveChangesAsync();
+                        var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                        await _logger.CompletarLogDesdeServicio(
+                            logId,
+                            $"Intento de actualizar cliente a email duplicado: {clienteDto.Email}",
+                            sql,
+                            "Error"
+                        );
                         throw new InvalidOperationException("Ya existe otro cliente con ese email.");
                     }
                     throw;
                 }
 
-                _context.NegocioLog.Add(new NegocioLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Actualizar",
-                    Mensaje = $"Cliente {cliente.Nombre} actualizado correctamente.",
-                    Resultado = "Exito"
-                });
-                await _context.SaveChangesAsync();
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Cliente {cliente.Nombre} actualizado correctamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return new ClienteReadDto
                 {
@@ -237,23 +237,22 @@ namespace Gestion_de_Pedidos.Service
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Actualizar",
-                    Mensaje = ex.Message,
-                    SqlSentencia = $"UPDATE Cliente SET Nombre={clienteDto.Nombre}, Email={clienteDto.Email} WHERE Email={email}",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al actualizar cliente: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }
 
-        // Eliminar cliente por email (soft delete)
-        // Retorna: true si se eliminó, false si tiene pedidos, null si no existe
-        public async Task<bool?> DeleteByEmailAsync(string email)
+        public async Task<bool?> DeleteByEmailAsync(string email, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var cliente = await _context.Clientes
@@ -261,64 +260,61 @@ namespace Gestion_de_Pedidos.Service
 
                 if (cliente == null)
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Eliminar",
-                        Mensaje = $"Intento de eliminar cliente inexistente con Email={email}",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Intento de eliminar cliente inexistente con Email={email}",
+                        sql,
+                        "Error"
+                    );
                     return null;
                 }
 
-                // Validar que el cliente no tenga pedidos no cancelados
                 var tienePedidosActivos = await _context.CabeceraPedidos
                     .AnyAsync(p => p.ClienteId == cliente.Id && p.Estado != "Cancelado");
 
                 if (tienePedidosActivos)
                 {
-                    _context.NegocioLog.Add(new NegocioLog
-                    {
-                        Entidad = "Cliente",
-                        Accion = "Eliminar",
-                        Mensaje = $"No se puede eliminar el cliente {cliente.Nombre} porque tiene pedidos asociados.",
-                        Resultado = "Error"
-                    });
-                    await _context.SaveChangesAsync();
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"No se puede eliminar el cliente {cliente.Nombre} porque tiene pedidos asociados",
+                        sql,
+                        "Error"
+                    );
                     return false;
                 }
 
                 cliente.Activo = false;
                 await _context.SaveChangesAsync();
 
-                _context.NegocioLog.Add(new NegocioLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Eliminar",
-                    Mensaje = $"Cliente {cliente.Nombre} eliminado correctamente.",
-                    Resultado = "Exito"
-                });
-                await _context.SaveChangesAsync();
+                var sqlFinal = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Cliente {cliente.Nombre} eliminado correctamente",
+                    sqlFinal,
+                    "Éxito"
+                );
 
                 return true;
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Eliminar",
-                    Mensaje = ex.Message,
-                    SqlSentencia = $"UPDATE Cliente SET Activo=0 WHERE Email={email}",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al eliminar cliente: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }
 
-        // Verificar si existe un cliente por email
         public async Task<bool> ExistsByEmailAsync(string email)
         {
             try
@@ -326,24 +322,16 @@ namespace Gestion_de_Pedidos.Service
                 return await _context.Clientes
                     .AnyAsync(c => c.Email.ToLower() == email.ToLower() && c.Activo == true);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Verificar existencia por Email",
-                    Mensaje = ex.Message,
-                    SqlSentencia = $"SELECT COUNT(*) FROM Clientes WHERE Email={email} AND Activo=1",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
                 throw;
             }
         }
 
-        // Buscar clientes por nombre
-        public async Task<IEnumerable<ClienteReadDto>> SearchByNameAsync(string nombre)
+        public async Task<IEnumerable<ClienteReadDto>> SearchByNameAsync(string nombre, string logId)
         {
+            SqlCaptureInterceptor.IniciarCaptura();
+
             try
             {
                 var clientes = (await _context.Clientes
@@ -358,28 +346,27 @@ namespace Gestion_de_Pedidos.Service
                     })
                     .ToList();
 
-                _context.NegocioLog.Add(new NegocioLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Buscar por Nombre",
-                    Mensaje = $"Se encontraron {clientes.Count} clientes que contienen '{nombre}'.",
-                    Resultado = "Exito"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Se encontraron {clientes.Count} clientes que contienen '{nombre}'",
+                    sql,
+                    "Éxito"
+                );
 
                 return clientes;
             }
             catch (Exception ex)
             {
-                _context.SqlLog.Add(new SqlLog
-                {
-                    Entidad = "Cliente",
-                    Accion = "Buscar por Nombre",
-                    Mensaje = ex.Message,
-                    SqlSentencia = "SELECT * FROM Clientes WHERE Activo=1",
-                    Resultado = "Error"
-                });
-                await _context.SaveChangesAsync();
+                var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                await _logger.CompletarLogDesdeServicio(
+                    logId,
+                    $"Error al buscar clientes por nombre: {ex.Message}",
+                    sql,
+                    "Error"
+                );
                 throw;
             }
         }

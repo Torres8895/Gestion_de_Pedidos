@@ -1,17 +1,21 @@
 ﻿using Gestion_de_Pedidos.DataBase;
 using Gestion_de_Pedidos.Service;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 📌 Configuración de la conexión a SQL Server Express
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<ApplicationDbContext>(options =>{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.AddInterceptors(new SqlCaptureInterceptor()); // ← AGREGAR ESTA LÍNEA
+});
 
 // Inyección de dependencias
 builder.Services.AddScoped<ProductoService>();
 builder.Services.AddScoped<ClientesService>();
 builder.Services.AddScoped<PedidosService>();
+builder.Services.AddScoped<ContinuousLogger>();
 
 // Controladores
 builder.Services.AddControllers();
