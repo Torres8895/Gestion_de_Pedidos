@@ -471,7 +471,7 @@ namespace Gestion_de_Pedidos.Service
                     .Include(d => d.Producto)
                     .Where(d => d.CabeceraPedido.NumeroPedido == numeroPedido &&
                                 d.CabeceraPedido.Cliente.Activo == true &&
-                                d.CabeceraPedido.Estado == "Pendiente" &&
+                                d.CabeceraPedido.Estado != "Cancelado" &&
                                 d.Producto.Activo == true)
                     .Select(d => new PedidoDetalleReadDto
                     {
