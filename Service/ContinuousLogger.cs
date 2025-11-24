@@ -1,18 +1,21 @@
-﻿using System.Text;
-using System.Collections.Concurrent;
-using Microsoft.Extensions.Configuration;
+﻿using Gestion_de_Pedidos.DataBase;
 using Gestion_de_Pedidos.Models;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Concurrent;
+using System.Text;
 
 namespace Gestion_de_Pedidos.Service
 {
     public class ContinuousLogger
     {
         private readonly string _logDirectory;
+        private readonly ApplicationDbContext _context;
         private static readonly SemaphoreSlim _semaphore = new(1, 1);
         private static readonly ConcurrentDictionary<string, LogEntry> _logsEnProceso = new();
 
-        public ContinuousLogger(IConfiguration configuration)
+        public ContinuousLogger(IConfiguration configuration, ApplicationDbContext context)
         {
+            _context = context;
             _logDirectory = configuration["Logging:LogDirectory"] ?? "Logs";
 
             if (!Directory.Exists(_logDirectory))
@@ -57,7 +60,6 @@ namespace Gestion_de_Pedidos.Service
             return Task.CompletedTask;
         }
 
-        // NUEVO: Para registrar errores del controller
         public Task RegistrarErrorController(string logId, string error)
         {
             if (_logsEnProceso.TryGetValue(logId, out var logEntry))
@@ -72,7 +74,48 @@ namespace Gestion_de_Pedidos.Service
         {
             if (_logsEnProceso.TryRemove(logId, out var logEntry))
             {
-                await EscribirLogCompletoAsync(logEntry);
+                // Siempre guardamos en TXT 
+                try
+                {
+                    await EscribirLogCompletoAsync(logEntry);
+                }
+                catch (Exception ex)
+                {
+                    // Si falla el TXT, al menos intentamos registrarlo en consola
+                    Console.WriteLine($"ERROR al escribir log en TXT: {ex.Message}");
+                }
+
+                // Guardamos en BD (esto es opcional/secundario)
+                try
+                {
+                    await GuardarEnBaseDeDatosAsync(logEntry);
+                }
+                catch (Exception ex)
+                {
+                    // Si falla la BD, NO queremos que rompa la respuesta al usuario
+                    Console.WriteLine($"ERROR al guardar log en BD: {ex.Message}");
+
+                    // Escribimos el error en el mismo archivo de log
+                    await EscribirErrorEnLogAsync($"Error al guardar log en BD: {ex.Message}");
+                }
+            }
+        }
+
+        private async Task EscribirErrorEnLogAsync(string error)
+        {
+            try
+            {
+                var nombreArchivo = $"log_errores_{DateTime.Now:yyyyMMdd}.txt";
+                var rutaCompleta = Path.Combine(_logDirectory, nombreArchivo);
+                await File.AppendAllTextAsync(
+                    rutaCompleta,
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {error}{Environment.NewLine}",
+                    Encoding.UTF8
+                );
+            }
+            catch
+            {
+                // Si ni siquiera podemos escribir el error, no hacemos nada
             }
         }
 
@@ -81,35 +124,23 @@ namespace Gestion_de_Pedidos.Service
             var logLine = new StringBuilder();
 
             logLine.Append($"{log.Fecha:yyyy-MM-dd HH:mm:ss}");
-            logLine.Append($" | Entidad: {log.Entidad}");
+            logLine.Append($" | Llamada: {log.Entidad}");
             logLine.Append($" | IP: {log.Ip}");
-            logLine.Append($" | Método: {log.Metodo}");
+            logLine.Append($" | Metodo: {log.Metodo}");
             logLine.Append($" | Status: {log.StatusCode}");
             logLine.Append($" | Headers: {LimpiarTexto(log.Headers)}");
 
-            // Error en controller (validaciones, etc)
             if (!string.IsNullOrEmpty(log.ErrorController))
-            {
                 logLine.Append($" | Error Controller: {LimpiarTexto(log.ErrorController)}");
-            }
 
-            // Datos del servicio
             if (!string.IsNullOrEmpty(log.DatosServicio))
-            {
-                logLine.Append($" | Servicio: {LimpiarTexto(log.DatosServicio)}");
-            }
+                logLine.Append($" |Mensaje Servicio: {LimpiarTexto(log.DatosServicio)}");
 
-            // SQL capturado
             if (!string.IsNullOrEmpty(log.SqlQuery))
-            {
                 logLine.Append($" | SQL: {LimpiarTexto(log.SqlQuery)}");
-            }
 
-            // Resultado
             if (!string.IsNullOrEmpty(log.ResultadoServicio))
-            {
                 logLine.Append($" | Resultado: {LimpiarTexto(log.ResultadoServicio)}");
-            }
 
             await _semaphore.WaitAsync();
 
@@ -128,6 +159,12 @@ namespace Gestion_de_Pedidos.Service
             {
                 _semaphore.Release();
             }
+        }
+
+        private async Task GuardarEnBaseDeDatosAsync(LogEntry log)
+        {
+            _context.Logs.Add(log);
+            await _context.SaveChangesAsync();
         }
 
         private string LimpiarTexto(string texto)

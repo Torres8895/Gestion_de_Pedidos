@@ -285,6 +285,55 @@ namespace Gestion_de_Pedidos.Service
                     return null;
                 }
 
+                var estadosPermitidos = new[] { "Pendiente", "Cancelado", "Completado" };
+
+                if (!estadosPermitidos.Contains(updateDto.Estado))
+                {
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"Estado inválido '{updateDto.Estado}'. Solo se permiten: Pendiente, Cancelado, Completado.",
+                        sql,
+                        "Error"
+                    );
+
+                    throw new InvalidOperationException(
+                        $"Estado inválido '{updateDto.Estado}'. Solo se permiten: Pendiente, Cancelado, Completado."
+                    );
+                }
+
+                if (cabecera.Estado == "Cancelado")
+                {
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"No se puede actualizar el pedido {numeroPedido} porque está cancelado",
+                        sql,
+                        "Error"
+                    );
+
+                    throw new InvalidOperationException(
+                        $"No se puede actualizar el pedido {numeroPedido} porque está cancelado"
+                    );
+                }
+
+                if (cabecera.Estado == "Completado")
+                {
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"No se puede actualizar el pedido {numeroPedido} porque ya está completado",
+                        sql,
+                        "Error"
+                    );
+
+                    throw new InvalidOperationException(
+                        $"No se puede actualizar el pedido {numeroPedido} porque ya está completado"
+                    );
+                }
+
+
                 cabecera.Estado = updateDto.Estado;
                 _context.CabeceraPedidos.Update(cabecera);
                 await _context.SaveChangesAsync();
@@ -351,6 +400,24 @@ namespace Gestion_de_Pedidos.Service
                     return null;
                 }
 
+                // solo puede eliminar si está Pendiente
+                if (cabecera.Estado != "Pendiente")
+                {
+                    var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
+
+                    await _logger.CompletarLogDesdeServicio(
+                        logId,
+                        $"No se puede eliminar el pedido {numeroPedido} porque su estado es {cabecera.Estado}",
+                        sql,
+                        "Error"
+                    );
+
+                    throw new InvalidOperationException(
+                        $"Solo se pueden eliminar pedidos en estado Pendiente. El pedido está en estado {cabecera.Estado}."
+                    );
+                }
+
+                // Si está pendiente → se cancela
                 cabecera.Estado = "Cancelado";
                 _context.CabeceraPedidos.Update(cabecera);
                 await _context.SaveChangesAsync();
@@ -390,6 +457,7 @@ namespace Gestion_de_Pedidos.Service
                 throw;
             }
         }
+
 
         public async Task<IEnumerable<PedidoDetalleReadDto>> GetDetallesByPedidoAsync(string numeroPedido, string logId)
         {

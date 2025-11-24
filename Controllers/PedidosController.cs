@@ -275,6 +275,12 @@ namespace Gestion_de_Pedidos.Controllers
                     pedido = pedido
                 });
             }
+            catch (InvalidOperationException ex)
+            {
+                await _logger.RegistrarErrorController(logId, $"Error de negocio: {ex.Message}");
+                await _logger.FinalizarLog(logId);
+                return BadRequest(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
                 await _logger.RegistrarErrorController(logId, $"Error al cancelar pedido: {ex.Message}");

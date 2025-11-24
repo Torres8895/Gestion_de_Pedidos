@@ -111,36 +111,48 @@ namespace Gestion_de_Pedidos.Migrations
                     b.ToTable("DetallePedidos");
                 });
 
-            modelBuilder.Entity("Gestion_de_Pedidos.Models.NegocioLog", b =>
+            modelBuilder.Entity("Gestion_de_Pedidos.Models.LogEntry", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Accion")
-                        .IsRequired()
+                    b.Property<string>("DatosServicio")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Entidad")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ErrorController")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Mensaje")
+                    b.Property<string>("Headers")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Resultado")
+                    b.Property<string>("Ip")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Metodo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResultadoServicio")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SqlQuery")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.ToTable("NegocioLog");
+                    b.ToTable("Logs");
                 });
 
             modelBuilder.Entity("Gestion_de_Pedidos.Models.Producto", b =>
@@ -168,41 +180,6 @@ namespace Gestion_de_Pedidos.Migrations
                         .IsUnique();
 
                     b.ToTable("Productos");
-                });
-
-            modelBuilder.Entity("Gestion_de_Pedidos.Models.SqlLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Accion")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Entidad")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("Fecha")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Mensaje")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Resultado")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SqlSentencia")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SqlLog");
                 });
 
             modelBuilder.Entity("Gestion_de_Pedidos.Models.CabeceraPedido", b =>

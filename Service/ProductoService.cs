@@ -201,10 +201,12 @@ namespace Gestion_de_Pedidos.Service
                     return null;
                 }
 
-                bool existe = await _context.Productos
-                    .AnyAsync(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper() && p.Id != id && p.Activo);
+                // Buscamos el producto duplicado (si existe)
+                var duplicado = await _context.Productos
+                    .Where(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper() && p.Id != id)
+                    .FirstOrDefaultAsync();
 
-                if (existe)
+                if (duplicado != null)
                 {
                     var sql = SqlCaptureInterceptor.ObtenerSqlCapturado();
 
@@ -215,8 +217,20 @@ namespace Gestion_de_Pedidos.Service
                         "Error"
                     );
 
-                    throw new InvalidOperationException("Ya existe un producto con ese nombre.");
+                    // Revertimos cambios del producto actual
+                    _context.Entry(producto).State = EntityState.Unchanged;
+
+                    // Mensaje diferente según si el duplicado está activo o no
+                    if (duplicado.Activo)
+                    {
+                        throw new InvalidOperationException("Ya existe un producto ACTIVO con ese nombre.");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Existe un producto INACTIVO con ese nombre.");
+                    }
                 }
+
 
                 producto.Nombre = dto.Nombre.ToUpper();
                 producto.Precio = dto.Precio;

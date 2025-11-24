@@ -1,0 +1,2 @@
+﻿[2025-11-24 13:16:58] Error al guardar log en BD: An error occurred while saving the entity changes. See the inner exception for details.
+[2025-11-24 14:41:11] Error al guardar log en BD: An error occurred while saving the entity changes. See the inner exception for details.

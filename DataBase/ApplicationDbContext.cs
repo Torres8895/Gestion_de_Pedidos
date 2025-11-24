@@ -13,7 +13,6 @@ namespace Gestion_de_Pedidos.DataBase
         public DbSet<Cliente> Clientes { get; set; }
         public DbSet<CabeceraPedido> CabeceraPedidos { get; set; }
         public DbSet<DetallePedido> DetallePedidos { get; set; }
-        public DbSet<NegocioLog> NegocioLog { get; set; }
-        public DbSet<SqlLog> SqlLog { get; set; }
+        public DbSet<LogEntry> Logs { get; set; }
     }
 }
