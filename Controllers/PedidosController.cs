@@ -294,7 +294,7 @@ namespace Gestion_de_Pedidos.Controllers
         {
             try
             {
-                var fecha = DateTime.UtcNow;
+                var fecha = DateTime.Now;
                 var entidad = HttpContext.Request.Path.Value ?? "";
 
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Desconocida";
@@ -315,7 +315,7 @@ namespace Gestion_de_Pedidos.Controllers
             catch (Exception ex)
             {
                 return _logger.IniciarLog(
-                    DateTime.UtcNow,
+                    DateTime.Now,
                     HttpContext.Request.Path.Value ?? "Unknown",
                     "Error",
                     HttpContext.Request.Method,
